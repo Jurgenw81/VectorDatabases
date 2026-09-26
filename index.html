@@ -1,2081 +1,3231 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-<title>Local Vector Search — CLIP + FAISS</title>
-
-<meta
-  name="description"
-  content="Build a local semantic image and document search engine with Python, CLIP, Sentence Transformers and FAISS."
->
-
-<style>
-/* ============================================================
-   BASE
-============================================================ */
-
-:root {
-  --bg: #080c10;
-  --surface: #0d131a;
-  --surface2: #111922;
-  --surface3: #16202b;
-  --border: #202c39;
-  --border2: #2c3b4a;
-
-  --text: #f3f6f8;
-  --muted: #8d9aaa;
-  --muted2: #657283;
-
-  --green: #59e5aa;
-  --green-soft: rgba(89,229,170,.09);
-  --blue: #79aaff;
-  --yellow: #f1ce78;
-
-  --max: 1140px;
-
-  --mono:
-    "SFMono-Regular",
-    Consolas,
-    "Liberation Mono",
-    Menlo,
-    monospace;
-}
-
-* {
-  box-sizing: border-box;
-}
-
-html {
-  scroll-behavior: smooth;
-}
-
-body {
-  margin: 0;
-
-  color: var(--text);
-
-  background:
-    radial-gradient(
-      circle at 50% -10%,
-      rgba(89,229,170,.08),
-      transparent 32%
-    ),
-    var(--bg);
-
-  font-family:
-    Inter,
-    ui-sans-serif,
-    system-ui,
-    -apple-system,
-    BlinkMacSystemFont,
-    "Segoe UI",
-    sans-serif;
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <meta
+        name="description"
+        content="Local semantic search for images and documents using Python, CLIP, Sentence Transformers and FAISS."
+    >
+
+    <title>Local Vector Search</title>
+
+    <style>
+
+        /* =====================================================
+           VARIABLES
+        ===================================================== */
+
+        :root {
+            --bg: #070b0f;
+            --surface: #0c1218;
+            --surface-2: #111922;
+            --surface-3: #16212c;
+
+            --border: #202c38;
+            --border-light: #2c3a49;
+
+            --text: #f3f6f8;
+            --muted: #8c99a8;
+            --muted-2: #657383;
 
-  line-height: 1.6;
-}
+            --green: #59e5aa;
+            --green-soft: rgba(89, 229, 170, 0.09);
 
-a {
-  color: inherit;
-  text-decoration: none;
-}
+            --blue: #7aaaff;
+            --yellow: #edca75;
+
+            --max-width: 1140px;
 
-button,
-input {
-  font: inherit;
-}
+            --mono:
+                "SFMono-Regular",
+                Consolas,
+                "Liberation Mono",
+                Menlo,
+                monospace;
+        }
 
-button {
-  cursor: pointer;
-}
+
+        /* =====================================================
+           RESET
+        ===================================================== */
+
+        * {
+            box-sizing: border-box;
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
+        body {
+            margin: 0;
 
-img {
-  display: block;
-  max-width: 100%;
-}
+            color: var(--text);
 
-.container {
-  width: min(var(--max), calc(100% - 40px));
-  margin: 0 auto;
-}
+            background:
+                radial-gradient(
+                    circle at 50% -10%,
+                    rgba(89, 229, 170, 0.08),
+                    transparent 32%
+                ),
+                var(--bg);
 
+            font-family:
+                Inter,
+                ui-sans-serif,
+                system-ui,
+                -apple-system,
+                BlinkMacSystemFont,
+                "Segoe UI",
+                sans-serif;
 
-/* ============================================================
-   NAV
-============================================================ */
+            line-height: 1.6;
+        }
 
-nav {
-  position: sticky;
-  top: 0;
-  z-index: 100;
+        a {
+            color: inherit;
+            text-decoration: none;
+        }
 
-  border-bottom: 1px solid rgba(255,255,255,.05);
+        button,
+        input {
+            font: inherit;
+        }
 
-  background: rgba(8,12,16,.84);
+        button {
+            cursor: pointer;
+        }
 
-  backdrop-filter: blur(18px);
-  -webkit-backdrop-filter: blur(18px);
-}
+        code,
+        pre {
+            font-family: var(--mono);
+        }
 
-.nav-inner {
-  height: 68px;
+        img {
+            display: block;
+        }
 
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
+        .container {
+            width: min(
+                var(--max-width),
+                calc(100% - 40px)
+            );
 
-.logo {
-  display: flex;
-  align-items: center;
-  gap: 10px;
+            margin: 0 auto;
+        }
 
-  font-size: 15px;
-  font-weight: 800;
-}
 
-.logo-mark {
-  width: 32px;
-  height: 32px;
+        /* =====================================================
+           NAVIGATION
+        ===================================================== */
 
-  display: grid;
-  place-items: center;
+        nav {
+            position: sticky;
+            top: 0;
+            z-index: 100;
 
-  border: 1px solid rgba(89,229,170,.22);
-  border-radius: 9px;
+            border-bottom:
+                1px solid rgba(255, 255, 255, 0.05);
 
-  background: var(--green-soft);
+            background:
+                rgba(7, 11, 15, 0.84);
 
-  color: var(--green);
+            backdrop-filter: blur(18px);
+            -webkit-backdrop-filter: blur(18px);
+        }
 
-  font-family: var(--mono);
-}
+        .nav-inner {
+            height: 68px;
 
-.nav-links {
-  display: flex;
-  align-items: center;
-  gap: 25px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
 
-  color: var(--muted);
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 10px;
 
-  font-size: 13px;
-}
+            font-size: 15px;
+            font-weight: 800;
+        }
 
-.nav-links a:hover {
-  color: white;
-}
+        .logo-mark {
+            width: 32px;
+            height: 32px;
 
-.github-button {
-  padding: 8px 13px;
+            display: grid;
+            place-items: center;
 
-  border: 1px solid var(--border);
-  border-radius: 8px;
+            border:
+                1px solid rgba(89, 229, 170, 0.22);
 
-  background: var(--surface);
-}
+            border-radius: 9px;
 
+            background:
+                var(--green-soft);
 
-/* ============================================================
-   HERO
-============================================================ */
+            color:
+                var(--green);
 
-.hero {
-  padding: 105px 0 70px;
+            font-family:
+                var(--mono);
+        }
 
-  text-align: center;
-}
+        .nav-links {
+            display: flex;
+            align-items: center;
+            gap: 25px;
 
-.badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
+            color:
+                var(--muted);
 
-  margin-bottom: 23px;
+            font-size: 13px;
+        }
 
-  padding: 6px 12px;
+        .nav-links a:hover {
+            color: white;
+        }
 
-  border: 1px solid rgba(89,229,170,.22);
-  border-radius: 999px;
+        .github-button {
+            padding: 8px 13px;
 
-  background: var(--green-soft);
+            border:
+                1px solid var(--border);
 
-  color: var(--green);
+            border-radius: 8px;
 
-  font-size: 12px;
-  font-weight: 750;
-}
+            background:
+                var(--surface);
+        }
 
-.badge-dot {
-  width: 6px;
-  height: 6px;
 
-  border-radius: 50%;
+        /* =====================================================
+           BUTTONS
+        ===================================================== */
 
-  background: var(--green);
+        .button {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
 
-  box-shadow: 0 0 12px var(--green);
-}
+            padding: 11px 17px;
 
-h1 {
-  max-width: 920px;
+            border:
+                1px solid var(--border);
 
-  margin: 0 auto;
+            border-radius: 9px;
 
-  font-size: clamp(48px,7vw,82px);
+            background:
+                var(--surface);
 
-  line-height: 1;
+            color: white;
 
-  letter-spacing: -.055em;
-}
+            font-size: 14px;
+            font-weight: 700;
 
-.gradient {
-  color: transparent;
+            transition:
+                transform 0.2s ease,
+                border-color 0.2s ease;
+        }
 
-  background:
-    linear-gradient(
-      90deg,
-      var(--green),
-      #a3f3d2,
-      var(--blue)
-    );
+        .button:hover {
+            transform:
+                translateY(-2px);
 
-  background-clip: text;
-  -webkit-background-clip: text;
-}
+            border-color:
+                var(--border-light);
+        }
 
-.hero-description {
-  max-width: 700px;
+        .button-primary {
+            border-color:
+                var(--green);
 
-  margin: 27px auto 0;
+            background:
+                var(--green);
 
-  color: var(--muted);
+            color:
+                #06120d;
+        }
 
-  font-size: 18px;
-}
 
-.hero-buttons {
-  margin-top: 32px;
+        /* =====================================================
+           HERO
+        ===================================================== */
 
-  display: flex;
-  justify-content: center;
-  gap: 11px;
+        .hero {
+            padding:
+                105px 0
+                70px;
 
-  flex-wrap: wrap;
-}
+            text-align: center;
+        }
 
-.button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 7px;
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
 
-  padding: 11px 17px;
+            margin-bottom: 23px;
 
-  border: 1px solid var(--border);
-  border-radius: 9px;
+            padding: 6px 12px;
 
-  background: var(--surface);
+            border:
+                1px solid
+                rgba(89, 229, 170, 0.22);
 
-  color: white;
+            border-radius: 999px;
 
-  font-size: 14px;
-  font-weight: 700;
+            background:
+                var(--green-soft);
 
-  transition: .2s ease;
-}
+            color:
+                var(--green);
 
-.button:hover {
-  transform: translateY(-2px);
+            font-size: 12px;
+            font-weight: 750;
+        }
 
-  border-color: var(--border2);
-}
+        .badge-dot {
+            width: 6px;
+            height: 6px;
 
-.button-primary {
-  border-color: var(--green);
+            border-radius: 50%;
 
-  background: var(--green);
+            background:
+                var(--green);
 
-  color: #07120d;
-}
+            box-shadow:
+                0 0 12px
+                var(--green);
+        }
 
+        h1 {
+            max-width: 920px;
 
-/* ============================================================
-   REAL PHOTO DEMO
-============================================================ */
+            margin:
+                0 auto;
 
-.demo-shell {
-  max-width: 960px;
+            font-size:
+                clamp(
+                    48px,
+                    7vw,
+                    82px
+                );
 
-  margin: 72px auto 0;
+            line-height: 1;
 
-  padding: 14px;
+            letter-spacing:
+                -0.055em;
+        }
 
-  border: 1px solid rgba(89,229,170,.14);
-  border-radius: 18px;
+        .gradient-text {
+            color:
+                transparent;
 
-  background:
-    linear-gradient(
-      145deg,
-      rgba(89,229,170,.07),
-      rgba(121,170,255,.025)
-    );
+            background:
+                linear-gradient(
+                    90deg,
+                    var(--green),
+                    #a5f4d4,
+                    var(--blue)
+                );
 
-  box-shadow:
-    0 40px 100px rgba(0,0,0,.4);
+            background-clip:
+                text;
 
-  text-align: left;
-}
+            -webkit-background-clip:
+                text;
+        }
 
-.demo-window {
-  overflow: hidden;
+        .hero-description {
+            max-width: 700px;
 
-  border: 1px solid var(--border);
-  border-radius: 12px;
+            margin:
+                27px auto 0;
 
-  background: #090e14;
-}
+            color:
+                var(--muted);
 
-.window-bar {
-  height: 45px;
+            font-size:
+                18px;
+        }
 
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
+        .hero-actions {
+            margin-top:
+                32px;
 
-  padding: 0 15px;
+            display:
+                flex;
 
-  border-bottom: 1px solid var(--border);
-}
+            justify-content:
+                center;
 
-.dots {
-  display: flex;
-  gap: 7px;
-}
+            flex-wrap:
+                wrap;
 
-.dot {
-  width: 9px;
-  height: 9px;
+            gap:
+                11px;
+        }
 
-  border-radius: 50%;
 
-  background: #344152;
-}
+        /* =====================================================
+           SEARCH DEMO
+        ===================================================== */
 
-.window-title {
-  color: var(--muted2);
+        .demo-shell {
+            max-width:
+                1000px;
 
-  font: 11px var(--mono);
-}
+            margin:
+                72px auto 0;
 
-.demo-body {
-  padding: 27px;
-}
+            padding:
+                14px;
 
-.search-bar {
-  display: flex;
-  gap: 10px;
-}
+            border:
+                1px solid
+                rgba(89, 229, 170, 0.14);
 
-.search-input {
-  flex: 1;
+            border-radius:
+                18px;
 
-  min-width: 0;
+            background:
+                linear-gradient(
+                    145deg,
+                    rgba(89, 229, 170, 0.07),
+                    rgba(122, 170, 255, 0.025)
+                );
 
-  padding: 14px 16px;
+            box-shadow:
+                0 40px 100px
+                rgba(0, 0, 0, 0.4);
 
-  outline: none;
+            text-align:
+                left;
+        }
 
-  border: 1px solid var(--border);
-  border-radius: 9px;
+        .demo-window {
+            overflow:
+                hidden;
 
-  background: #070b10;
+            border:
+                1px solid
+                var(--border);
 
-  color: white;
-}
+            border-radius:
+                12px;
 
-.search-input:focus {
-  border-color: var(--green);
+            background:
+                #080d12;
+        }
 
-  box-shadow:
-    0 0 0 3px var(--green-soft);
-}
+        .window-bar {
+            height:
+                45px;
 
-.search-button {
-  padding: 0 22px;
+            display:
+                flex;
 
-  border: 0;
-  border-radius: 9px;
+            align-items:
+                center;
 
-  background: var(--green);
+            justify-content:
+                space-between;
 
-  color: #07120d;
+            padding:
+                0 15px;
 
-  font-weight: 800;
-}
+            border-bottom:
+                1px solid
+                var(--border);
+        }
 
-.demo-info {
-  margin: 18px 0 14px;
+        .window-dots {
+            display:
+                flex;
 
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 20px;
+            gap:
+                7px;
+        }
 
-  color: var(--muted);
+        .window-dot {
+            width:
+                9px;
 
-  font-size: 12px;
-}
+            height:
+                9px;
 
-.example-badge {
-  flex: 0 0 auto;
+            border-radius:
+                50%;
 
-  padding: 4px 8px;
+            background:
+                #344152;
+        }
 
-  border: 1px solid var(--border);
-  border-radius: 999px;
+        .window-title {
+            color:
+                var(--muted-2);
 
-  color: var(--muted2);
+            font:
+                11px
+                var(--mono);
+        }
 
-  font-size: 10px;
-  font-weight: 700;
+        .demo-body {
+            padding:
+                27px;
+        }
 
-  text-transform: uppercase;
-  letter-spacing: .07em;
-}
 
+        /* =====================================================
+           SEARCH CONTROLS
+        ===================================================== */
 
-/* ============================================================
-   PHOTO CARDS
-============================================================ */
+        .search-row {
+            display:
+                flex;
 
-.photo-grid {
-  display: grid;
+            gap:
+                10px;
+        }
 
-  grid-template-columns:
-    repeat(4,1fr);
+        .search-input {
+            flex:
+                1;
 
-  gap: 11px;
-}
+            min-width:
+                0;
 
-.photo-card {
-  position: relative;
+            padding:
+                14px 16px;
 
-  overflow: hidden;
+            outline:
+                none;
 
-  aspect-ratio: 1 / 1.08;
+            border:
+                1px solid
+                var(--border);
 
-  border: 1px solid var(--border);
-  border-radius: 10px;
+            border-radius:
+                9px;
 
-  background: var(--surface2);
+            background:
+                #060a0e;
 
-  transition:
-    transform .2s ease,
-    border-color .2s ease,
-    opacity .25s ease;
-}
+            color:
+                white;
+        }
 
-.photo-card:hover {
-  transform: translateY(-3px);
+        .search-input:focus {
+            border-color:
+                var(--green);
 
-  border-color: var(--border2);
-}
+            box-shadow:
+                0 0 0 3px
+                var(--green-soft);
+        }
 
-.photo-card img {
-  width: 100%;
-  height: 100%;
+        .search-button {
+            padding:
+                0 23px;
 
-  object-fit: cover;
-}
+            border:
+                0;
 
-.photo-overlay {
-  position: absolute;
+            border-radius:
+                9px;
 
-  right: 7px;
-  bottom: 7px;
-  left: 7px;
+            background:
+                var(--green);
 
-  padding: 8px 9px;
+            color:
+                #06120d;
 
-  border: 1px solid rgba(255,255,255,.08);
-  border-radius: 7px;
+            font-weight:
+                800;
+        }
 
-  background: rgba(5,9,13,.82);
+        .demo-toolbar {
+            margin:
+                17px 0 14px;
 
-  backdrop-filter: blur(9px);
-  -webkit-backdrop-filter: blur(9px);
-}
+            display:
+                flex;
 
-.photo-name {
-  overflow: hidden;
+            align-items:
+                center;
 
-  color: #dce4eb;
+            justify-content:
+                space-between;
 
-  font-size: 10px;
+            gap:
+                15px;
+        }
 
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
+        .result-status {
+            color:
+                var(--muted);
 
-.photo-source {
-  margin-top: 2px;
+            font-size:
+                12px;
+        }
 
-  color: #758291;
+        .toolbar-buttons {
+            display:
+                flex;
 
-  font-size: 9px;
-}
+            gap:
+                7px;
+        }
 
-.demo-note {
-  margin: 14px 0 0;
+        .small-button {
+            padding:
+                6px 10px;
 
-  color: var(--muted2);
+            border:
+                1px solid
+                var(--border);
 
-  font-size: 11px;
-}
+            border-radius:
+                7px;
 
-.demo-note strong {
-  color: #aeb9c4;
-}
+            background:
+                var(--surface);
 
+            color:
+                var(--muted);
 
-/* ============================================================
-   SECTIONS
-============================================================ */
+            font-size:
+                11px;
+        }
 
-section {
-  padding: 95px 0;
-}
+        .small-button:hover {
+            color:
+                white;
 
-.eyebrow {
-  margin-bottom: 11px;
+            border-color:
+                var(--border-light);
+        }
 
-  color: var(--green);
 
-  font-size: 12px;
-  font-weight: 800;
+        /* =====================================================
+           SEARCH SUGGESTIONS
+        ===================================================== */
 
-  letter-spacing: .12em;
+        .suggestions {
+            margin-bottom:
+                16px;
 
-  text-transform: uppercase;
-}
+            display:
+                flex;
 
-h2 {
-  max-width: 800px;
+            flex-wrap:
+                wrap;
 
-  margin: 0;
+            gap:
+                7px;
+        }
 
-  font-size: clamp(34px,5vw,51px);
+        .suggestion {
+            padding:
+                5px 9px;
 
-  line-height: 1.08;
+            border:
+                1px solid
+                var(--border);
 
-  letter-spacing: -.04em;
-}
+            border-radius:
+                999px;
 
-.section-copy {
-  max-width: 650px;
+            background:
+                transparent;
 
-  margin: 17px 0 0;
+            color:
+                var(--muted-2);
 
-  color: var(--muted);
+            font-size:
+                10px;
+        }
 
-  font-size: 16px;
-}
+        .suggestion:hover {
+            color:
+                var(--green);
 
+            border-color:
+                rgba(89, 229, 170, 0.25);
+        }
 
-/* ============================================================
-   HOW IT WORKS
-============================================================ */
 
-.pipeline {
-  margin-top: 50px;
+        /* =====================================================
+           IMAGE GRID
+        ===================================================== */
 
-  display: grid;
+        .photo-grid {
+            display:
+                grid;
 
-  grid-template-columns:
-    1fr auto 1fr auto 1fr auto 1fr;
+            grid-template-columns:
+                repeat(4, 1fr);
 
-  gap: 12px;
+            gap:
+                11px;
+        }
 
-  align-items: center;
-}
+        .photo-card {
+            position:
+                relative;
 
-.pipeline-card {
-  min-height: 155px;
+            overflow:
+                hidden;
 
-  padding: 21px;
+            min-width:
+                0;
 
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
+            aspect-ratio:
+                1 / 1.08;
 
-  border: 1px solid var(--border);
-  border-radius: 13px;
+            border:
+                1px solid
+                var(--border);
 
-  background: var(--surface);
+            border-radius:
+                10px;
 
-  transition: .25s ease;
-}
+            background:
+                var(--surface-2);
 
-.pipeline-card:hover {
-  border-color: rgba(89,229,170,.3);
+            transition:
+                transform 0.2s ease,
+                border-color 0.2s ease,
+                opacity 0.2s ease;
+        }
 
-  transform: translateY(-3px);
-}
+        .photo-card:hover {
+            transform:
+                translateY(-3px);
 
-.step-number {
-  margin-bottom: 14px;
+            border-color:
+                var(--border-light);
+        }
 
-  color: var(--green);
+        .photo-card img {
+            width:
+                100%;
 
-  font: 11px var(--mono);
-}
+            height:
+                100%;
 
-.pipeline-card strong {
-  font-size: 15px;
-}
+            object-fit:
+                cover;
+        }
 
-.pipeline-card p {
-  margin: 6px 0 0;
+        .photo-overlay {
+            position:
+                absolute;
 
-  color: var(--muted);
+            right:
+                7px;
 
-  font-size: 12px;
-}
+            bottom:
+                7px;
 
-.arrow {
-  color: #4d5b6b;
+            left:
+                7px;
 
-  font-size: 20px;
-}
+            padding:
+                8px 9px;
 
+            border:
+                1px solid
+                rgba(255, 255, 255, 0.08);
 
-/* ============================================================
-   FEATURES
-============================================================ */
+            border-radius:
+                7px;
 
-.feature-grid {
-  margin-top: 48px;
+            background:
+                rgba(5, 9, 13, 0.86);
 
-  display: grid;
+            backdrop-filter:
+                blur(9px);
 
-  grid-template-columns:
-    repeat(3,1fr);
+            -webkit-backdrop-filter:
+                blur(9px);
+        }
 
-  gap: 14px;
-}
+        .photo-filename {
+            overflow:
+                hidden;
 
-.feature {
-  padding: 26px;
+            color:
+                #dce4eb;
 
-  border: 1px solid var(--border);
-  border-radius: 13px;
+            font-size:
+                10px;
 
-  background: var(--surface);
+            text-overflow:
+                ellipsis;
 
-  transition: .2s ease;
-}
+            white-space:
+                nowrap;
+        }
 
-.feature:hover {
-  transform: translateY(-3px);
+        .photo-category {
+            margin-top:
+                2px;
 
-  border-color: var(--border2);
+            color:
+                var(--muted-2);
 
-  background: var(--surface2);
-}
+            font-size:
+                9px;
+        }
 
-.feature-icon {
-  width: 42px;
-  height: 42px;
+        .match-pill {
+            position:
+                absolute;
 
-  margin-bottom: 18px;
+            top:
+                7px;
 
-  display: grid;
-  place-items: center;
+            right:
+                7px;
 
-  border-radius: 9px;
+            display:
+                none;
 
-  background: var(--green-soft);
+            padding:
+                4px 7px;
 
-  color: var(--green);
+            border:
+                1px solid
+                rgba(89, 229, 170, 0.25);
 
-  font: 13px var(--mono);
-  font-weight: 800;
-}
+            border-radius:
+                999px;
 
-.feature h3 {
-  margin: 0 0 7px;
+            background:
+                rgba(6, 18, 13, 0.88);
 
-  font-size: 16px;
-}
+            color:
+                var(--green);
 
-.feature p {
-  margin: 0;
+            font-size:
+                9px;
 
-  color: var(--muted);
+            font-weight:
+                800;
+        }
 
-  font-size: 13px;
-}
+        .photo-card.search-result
+        .match-pill {
+            display:
+                block;
+        }
 
 
-/* ============================================================
-   TERMINAL
-============================================================ */
+        /* =====================================================
+           IMAGE ERROR FALLBACK
+        ===================================================== */
 
-.terminal {
-  margin-top: 45px;
+        .image-error {
+            position:
+                absolute;
 
-  overflow: hidden;
+            inset:
+                0;
 
-  border: 1px solid var(--border);
-  border-radius: 13px;
+            display:
+                none;
 
-  background: #070b10;
-}
+            place-items:
+                center;
 
-.terminal-top {
-  height: 44px;
+            padding:
+                20px;
 
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
+            background:
+                var(--surface-2);
 
-  padding: 0 15px;
+            color:
+                var(--muted-2);
 
-  border-bottom: 1px solid var(--border);
-}
+            text-align:
+                center;
 
-.terminal-body {
-  overflow-x: auto;
+            font:
+                11px/1.5
+                var(--mono);
+        }
 
-  padding: 23px;
+        .photo-card.failed
+        .image-error {
+            display:
+                grid;
+        }
 
-  color: #bec8d2;
+        .photo-card.failed img {
+            display:
+                none;
+        }
 
-  font: 13px/1.9 var(--mono);
 
-  white-space: pre;
-}
+        /* =====================================================
+           DEMO NOTE
+        ===================================================== */
 
-.green {
-  color: var(--green);
-}
+        .demo-note {
+            margin:
+                15px 0 0;
 
-.blue {
-  color: var(--blue);
-}
+            color:
+                var(--muted-2);
 
-.comment {
-  color: #637181;
-}
+            font-size:
+                11px;
+        }
 
+        .demo-note strong {
+            color:
+                #b6c1cb;
+        }
 
-/* ============================================================
-   COMMAND TABS
-============================================================ */
 
-.command-panel {
-  margin-top: 48px;
+        /* =====================================================
+           SECTIONS
+        ===================================================== */
 
-  overflow: hidden;
+        section {
+            padding:
+                95px 0;
+        }
 
-  border: 1px solid var(--border);
-  border-radius: 13px;
+        .eyebrow {
+            margin-bottom:
+                11px;
 
-  background: var(--surface);
-}
+            color:
+                var(--green);
 
-.tabs {
-  padding: 9px;
+            font-size:
+                12px;
 
-  display: flex;
-  gap: 4px;
+            font-weight:
+                800;
 
-  overflow-x: auto;
+            letter-spacing:
+                0.12em;
 
-  border-bottom: 1px solid var(--border);
-}
+            text-transform:
+                uppercase;
+        }
 
-.tab {
-  flex: 0 0 auto;
+        h2 {
+            max-width:
+                800px;
 
-  padding: 8px 12px;
+            margin:
+                0;
 
-  border: 0;
-  border-radius: 7px;
+            font-size:
+                clamp(
+                    34px,
+                    5vw,
+                    51px
+                );
 
-  background: transparent;
+            line-height:
+                1.08;
 
-  color: var(--muted);
+            letter-spacing:
+                -0.04em;
+        }
 
-  font-size: 12px;
-  font-weight: 700;
-}
+        .section-description {
+            max-width:
+                660px;
 
-.tab.active {
-  background: var(--surface3);
+            margin:
+                17px 0 0;
 
-  color: white;
-}
+            color:
+                var(--muted);
 
-.command-area {
-  position: relative;
+            font-size:
+                16px;
+        }
 
-  min-height: 92px;
 
-  padding: 25px;
-}
+        /* =====================================================
+           PIPELINE
+        ===================================================== */
 
-.command {
-  margin: 0;
+        .pipeline {
+            margin-top:
+                50px;
 
-  padding-right: 75px;
+            display:
+                grid;
 
-  overflow-x: auto;
+            grid-template-columns:
+                1fr auto
+                1fr auto
+                1fr auto
+                1fr;
 
-  color: #c7d1db;
+            align-items:
+                center;
 
-  font: 13px/1.8 var(--mono);
+            gap:
+                12px;
+        }
 
-  white-space: pre;
-}
+        .pipeline-card {
+            min-height:
+                155px;
 
-.copy {
-  position: absolute;
+            padding:
+                21px;
 
-  top: 18px;
-  right: 18px;
+            display:
+                flex;
 
-  padding: 7px 10px;
+            flex-direction:
+                column;
 
-  border: 1px solid var(--border);
-  border-radius: 7px;
+            justify-content:
+                center;
 
-  background: var(--surface2);
+            border:
+                1px solid
+                var(--border);
 
-  color: var(--muted);
+            border-radius:
+                13px;
 
-  font-size: 11px;
-}
+            background:
+                var(--surface);
 
-.copy:hover {
-  color: white;
-}
+            transition:
+                0.2s ease;
+        }
 
+        .pipeline-card:hover {
+            transform:
+                translateY(-3px);
 
-/* ============================================================
-   MODEL CARDS
-============================================================ */
+            border-color:
+                rgba(89, 229, 170, 0.3);
+        }
 
-.models {
-  margin-top: 48px;
+        .step {
+            margin-bottom:
+                14px;
 
-  display: grid;
+            color:
+                var(--green);
 
-  grid-template-columns:
-    1fr 1fr;
+            font:
+                11px
+                var(--mono);
+        }
 
-  gap: 14px;
-}
+        .pipeline-card strong {
+            font-size:
+                15px;
+        }
 
-.model {
-  padding: 27px;
+        .pipeline-card p {
+            margin:
+                6px 0 0;
 
-  border: 1px solid var(--border);
-  border-radius: 13px;
+            color:
+                var(--muted);
 
-  background: var(--surface);
-}
+            font-size:
+                12px;
+        }
 
-.model-label {
-  color: var(--green);
+        .pipeline-arrow {
+            color:
+                #4d5b6b;
 
-  font: 10px var(--mono);
+            font-size:
+                20px;
+        }
 
-  letter-spacing: .08em;
 
-  text-transform: uppercase;
-}
+        /* =====================================================
+           FEATURES
+        ===================================================== */
 
-.model-name {
-  margin-top: 12px;
+        .feature-grid {
+            margin-top:
+                48px;
 
-  color: #dce4eb;
+            display:
+                grid;
 
-  font: 14px/1.6 var(--mono);
+            grid-template-columns:
+                repeat(3, 1fr);
 
-  word-break: break-word;
-}
+            gap:
+                14px;
+        }
 
-.model p {
-  margin: 14px 0 0;
+        .feature {
+            padding:
+                26px;
 
-  color: var(--muted);
+            border:
+                1px solid
+                var(--border);
 
-  font-size: 13px;
-}
+            border-radius:
+                13px;
 
+            background:
+                var(--surface);
 
-/* ============================================================
-   PRIVACY
-============================================================ */
+            transition:
+                0.2s ease;
+        }
 
-.privacy-box {
-  padding: 34px;
+        .feature:hover {
+            transform:
+                translateY(-3px);
 
-  border: 1px solid rgba(89,229,170,.2);
-  border-radius: 15px;
+            border-color:
+                var(--border-light);
 
-  background:
-    linear-gradient(
-      145deg,
-      rgba(89,229,170,.065),
-      rgba(89,229,170,.015)
-    );
-}
+            background:
+                var(--surface-2);
+        }
 
-.privacy-box h3 {
-  margin: 0;
+        .feature-icon {
+            width:
+                42px;
 
-  font-size: 24px;
-}
+            height:
+                42px;
 
-.privacy-box p {
-  max-width: 730px;
+            margin-bottom:
+                18px;
 
-  margin: 12px 0 0;
+            display:
+                grid;
 
-  color: var(--muted);
-}
+            place-items:
+                center;
 
+            border-radius:
+                9px;
 
-/* ============================================================
-   CTA
-============================================================ */
+            background:
+                var(--green-soft);
 
-.cta {
-  margin: 40px 0 95px;
+            color:
+                var(--green);
 
-  padding: 65px 30px;
+            font:
+                12px
+                var(--mono);
 
-  border: 1px solid var(--border);
-  border-radius: 18px;
+            font-weight:
+                800;
+        }
 
-  background:
-    radial-gradient(
-      circle at top,
-      rgba(89,229,170,.09),
-      transparent 55%
-    ),
-    var(--surface);
+        .feature h3 {
+            margin:
+                0 0 7px;
 
-  text-align: center;
-}
+            font-size:
+                16px;
+        }
 
-.cta h2 {
-  margin: auto;
-}
+        .feature p {
+            margin:
+                0;
 
-.cta p {
-  max-width: 560px;
+            color:
+                var(--muted);
 
-  margin: 17px auto 26px;
+            font-size:
+                13px;
+        }
 
-  color: var(--muted);
-}
 
+        /* =====================================================
+           TERMINAL
+        ===================================================== */
 
-/* ============================================================
-   FOOTER
-============================================================ */
+        .terminal {
+            margin-top:
+                45px;
 
-footer {
-  padding: 25px 0 40px;
+            overflow:
+                hidden;
 
-  border-top: 1px solid var(--border);
+            border:
+                1px solid
+                var(--border);
 
-  color: var(--muted2);
+            border-radius:
+                13px;
 
-  font-size: 12px;
-}
+            background:
+                #060a0e;
+        }
 
-.footer-inner {
-  display: flex;
-  justify-content: space-between;
-  gap: 20px;
-}
+        .terminal-top {
+            height:
+                44px;
 
+            display:
+                flex;
 
-/* ============================================================
-   RESPONSIVE
-============================================================ */
+            align-items:
+                center;
 
-@media (max-width: 900px) {
+            justify-content:
+                space-between;
 
-  .pipeline {
-    grid-template-columns: 1fr;
-  }
+            padding:
+                0 15px;
 
-  .arrow {
-    text-align: center;
+            border-bottom:
+                1px solid
+                var(--border);
+        }
 
-    transform: rotate(90deg);
-  }
+        .terminal-body {
+            overflow-x:
+                auto;
 
-  .feature-grid {
-    grid-template-columns: 1fr 1fr;
-  }
+            padding:
+                23px;
 
-  .photo-grid {
-    grid-template-columns: 1fr 1fr;
-  }
+            color:
+                #bec8d2;
 
-}
+            font:
+                13px/1.9
+                var(--mono);
 
+            white-space:
+                pre;
+        }
 
-@media (max-width: 650px) {
+        .green {
+            color:
+                var(--green);
+        }
 
-  .container {
-    width: calc(100% - 24px);
-  }
+        .blue {
+            color:
+                var(--blue);
+        }
 
-  .nav-links a:not(.github-button) {
-    display: none;
-  }
+        .comment {
+            color:
+                #637181;
+        }
 
-  .hero {
-    padding-top: 78px;
-  }
 
-  .hero-description {
-    font-size: 16px;
-  }
+        /* =====================================================
+           COMMAND PANEL
+        ===================================================== */
 
-  section {
-    padding: 72px 0;
-  }
+        .command-panel {
+            margin-top:
+                48px;
 
-  .search-bar {
-    flex-direction: column;
-  }
+            overflow:
+                hidden;
 
-  .search-button {
-    padding: 13px;
-  }
+            border:
+                1px solid
+                var(--border);
 
-  .demo-body {
-    padding: 17px;
-  }
+            border-radius:
+                13px;
 
-  .demo-info {
-    align-items: flex-start;
-    flex-direction: column;
-  }
+            background:
+                var(--surface);
+        }
 
-  .photo-grid,
-  .feature-grid,
-  .models {
-    grid-template-columns: 1fr;
-  }
+        .tabs {
+            padding:
+                9px;
 
-  .photo-card {
-    aspect-ratio: 16 / 10;
-  }
+            display:
+                flex;
 
-  .footer-inner {
-    flex-direction: column;
-  }
+            gap:
+                4px;
 
-}
+            overflow-x:
+                auto;
 
-</style>
+            border-bottom:
+                1px solid
+                var(--border);
+        }
+
+        .tab {
+            flex:
+                0 0 auto;
+
+            padding:
+                8px 12px;
+
+            border:
+                0;
+
+            border-radius:
+                7px;
+
+            background:
+                transparent;
+
+            color:
+                var(--muted);
+
+            font-size:
+                12px;
+
+            font-weight:
+                700;
+        }
+
+        .tab.active {
+            background:
+                var(--surface-3);
+
+            color:
+                white;
+        }
+
+        .command-area {
+            position:
+                relative;
+
+            min-height:
+                92px;
+
+            padding:
+                25px;
+        }
+
+        .command-code {
+            margin:
+                0;
+
+            padding-right:
+                75px;
+
+            overflow-x:
+                auto;
+
+            color:
+                #c7d1db;
+
+            font:
+                13px/1.8
+                var(--mono);
+
+            white-space:
+                pre;
+        }
+
+        .copy-button {
+            position:
+                absolute;
+
+            top:
+                18px;
+
+            right:
+                18px;
+
+            padding:
+                7px 10px;
+
+            border:
+                1px solid
+                var(--border);
+
+            border-radius:
+                7px;
+
+            background:
+                var(--surface-2);
+
+            color:
+                var(--muted);
+
+            font-size:
+                11px;
+        }
+
+
+        /* =====================================================
+           MODELS
+        ===================================================== */
+
+        .model-grid {
+            margin-top:
+                48px;
+
+            display:
+                grid;
+
+            grid-template-columns:
+                1fr 1fr;
+
+            gap:
+                14px;
+        }
+
+        .model-card {
+            padding:
+                27px;
+
+            border:
+                1px solid
+                var(--border);
+
+            border-radius:
+                13px;
+
+            background:
+                var(--surface);
+        }
+
+        .model-type {
+            color:
+                var(--green);
+
+            font:
+                10px
+                var(--mono);
+
+            letter-spacing:
+                0.08em;
+
+            text-transform:
+                uppercase;
+        }
+
+        .model-name {
+            margin-top:
+                12px;
+
+            color:
+                #dce4eb;
+
+            font:
+                14px/1.6
+                var(--mono);
+
+            word-break:
+                break-word;
+        }
+
+        .model-card p {
+            margin:
+                14px 0 0;
+
+            color:
+                var(--muted);
+
+            font-size:
+                13px;
+        }
+
+
+        /* =====================================================
+           DATABASE FILES
+        ===================================================== */
+
+        .folder-tree {
+            margin-top:
+                45px;
+
+            padding:
+                24px;
+
+            overflow-x:
+                auto;
+
+            border:
+                1px solid
+                var(--border);
+
+            border-radius:
+                13px;
+
+            background:
+                #060a0e;
+
+            color:
+                #bec8d2;
+
+            font:
+                13px/1.9
+                var(--mono);
+
+            white-space:
+                pre;
+        }
+
+
+        /* =====================================================
+           PRIVACY
+        ===================================================== */
+
+        .privacy-box {
+            padding:
+                34px;
+
+            border:
+                1px solid
+                rgba(89, 229, 170, 0.2);
+
+            border-radius:
+                15px;
+
+            background:
+                linear-gradient(
+                    145deg,
+                    rgba(89, 229, 170, 0.065),
+                    rgba(89, 229, 170, 0.015)
+                );
+        }
+
+        .privacy-box h3 {
+            margin:
+                0;
+
+            font-size:
+                24px;
+        }
+
+        .privacy-box p {
+            max-width:
+                730px;
+
+            margin:
+                12px 0 0;
+
+            color:
+                var(--muted);
+        }
+
+
+        /* =====================================================
+           CTA
+        ===================================================== */
+
+        .cta {
+            margin:
+                40px 0 95px;
+
+            padding:
+                65px 30px;
+
+            border:
+                1px solid
+                var(--border);
+
+            border-radius:
+                18px;
+
+            background:
+                radial-gradient(
+                    circle at top,
+                    rgba(89, 229, 170, 0.09),
+                    transparent 55%
+                ),
+                var(--surface);
+
+            text-align:
+                center;
+        }
+
+        .cta h2 {
+            margin:
+                auto;
+        }
+
+        .cta p {
+            max-width:
+                560px;
+
+            margin:
+                17px auto 26px;
+
+            color:
+                var(--muted);
+        }
+
+
+        /* =====================================================
+           FOOTER
+        ===================================================== */
+
+        footer {
+            padding:
+                25px 0 40px;
+
+            border-top:
+                1px solid
+                var(--border);
+
+            color:
+                var(--muted-2);
+
+            font-size:
+                12px;
+        }
+
+        .footer-inner {
+            display:
+                flex;
+
+            justify-content:
+                space-between;
+
+            gap:
+                20px;
+        }
+
+
+        /* =====================================================
+           RESPONSIVE
+        ===================================================== */
+
+        @media (max-width: 900px) {
+
+            .pipeline {
+                grid-template-columns:
+                    1fr;
+            }
+
+            .pipeline-arrow {
+                text-align:
+                    center;
+
+                transform:
+                    rotate(90deg);
+            }
+
+            .feature-grid {
+                grid-template-columns:
+                    1fr 1fr;
+            }
+
+            .photo-grid {
+                grid-template-columns:
+                    1fr 1fr;
+            }
+
+        }
+
+
+        @media (max-width: 650px) {
+
+            .container {
+                width:
+                    calc(100% - 24px);
+            }
+
+            .nav-links a:not(.github-button) {
+                display:
+                    none;
+            }
+
+            .hero {
+                padding-top:
+                    78px;
+            }
+
+            .hero-description {
+                font-size:
+                    16px;
+            }
+
+            section {
+                padding:
+                    72px 0;
+            }
+
+            .search-row {
+                flex-direction:
+                    column;
+            }
+
+            .search-button {
+                padding:
+                    13px;
+            }
+
+            .demo-body {
+                padding:
+                    17px;
+            }
+
+            .demo-toolbar {
+                align-items:
+                    flex-start;
+
+                flex-direction:
+                    column;
+            }
+
+            .photo-grid,
+            .feature-grid,
+            .model-grid {
+                grid-template-columns:
+                    1fr;
+            }
+
+            .photo-card {
+                aspect-ratio:
+                    16 / 10;
+            }
+
+            .footer-inner {
+                flex-direction:
+                    column;
+            }
+
+        }
+
+    </style>
 </head>
 
 
 <body>
 
 
-<!-- ============================================================
+<!-- =========================================================
      NAVIGATION
-============================================================ -->
+========================================================= -->
 
 <nav>
 
-  <div class="container nav-inner">
+    <div class="container nav-inner">
 
-    <a href="#" class="logo">
+        <a
+            href="#"
+            class="logo"
+        >
 
-      <span class="logo-mark">
-        ⌕
-      </span>
+            <span class="logo-mark">
+                ⌕
+            </span>
 
-      Local Vector Search
+            Local Vector Search
 
-    </a>
+        </a>
 
 
-    <div class="nav-links">
+        <div class="nav-links">
 
-      <a href="#how">
-        How it works
-      </a>
+            <a href="#demo">
+                Demo
+            </a>
 
-      <a href="#features">
-        Features
-      </a>
+            <a href="#how">
+                How it works
+            </a>
 
-      <a href="#setup">
-        Setup
-      </a>
+            <a href="#features">
+                Features
+            </a>
 
-      <!-- CHANGE THIS URL -->
+            <a href="#setup">
+                Setup
+            </a>
 
-      <a
-        class="github-button"
-        href="https://github.com/YOUR_USERNAME/YOUR_REPOSITORY"
-        target="_blank"
-        rel="noopener noreferrer"
-      >
-        GitHub ↗
-      </a>
+            <!-- REPLACE WITH YOUR REPOSITORY -->
+
+            <a
+                class="github-button"
+                href="https://github.com/YOUR_USERNAME/YOUR_REPOSITORY"
+                target="_blank"
+                rel="noopener noreferrer"
+            >
+                GitHub ↗
+            </a>
+
+        </div>
 
     </div>
-
-  </div>
 
 </nav>
 
 
 
-<!-- ============================================================
+<!-- =========================================================
      HERO
-============================================================ -->
+========================================================= -->
 
 <header class="hero">
 
-  <div class="container">
+    <div class="container">
 
-    <div class="badge">
+        <div class="badge">
 
-      <span class="badge-dot"></span>
+            <span class="badge-dot"></span>
 
-      CLIP + FAISS + Python
-
-    </div>
-
-
-    <h1>
-
-      Search your computer
-
-      <span class="gradient">
-        by meaning.
-      </span>
-
-    </h1>
-
-
-    <p class="hero-description">
-
-      Build a private semantic search engine that lets you
-      find images with natural language, discover similar
-      photos and search documents by meaning instead of
-      filenames.
-
-    </p>
-
-
-    <div class="hero-buttons">
-
-      <a
-        href="#setup"
-        class="button button-primary"
-      >
-        Build it ↓
-      </a>
-
-      <a
-        href="#how"
-        class="button"
-      >
-        How it works
-      </a>
-
-    </div>
-
-
-
-    <!-- ========================================================
-         REAL IMAGE EXAMPLE
-    ========================================================= -->
-
-    <div class="demo-shell">
-
-      <div class="demo-window">
-
-        <div class="window-bar">
-
-          <div class="dots">
-            <span class="dot"></span>
-            <span class="dot"></span>
-            <span class="dot"></span>
-          </div>
-
-          <div class="window-title">
-            semantic image search — example
-          </div>
+            CLIP + FAISS + Python
 
         </div>
 
 
-        <div class="demo-body">
+        <h1>
 
-          <div class="search-bar">
+            Search your computer
 
-            <input
-              id="demoSearch"
-              class="search-input"
-              value="dog playing in snow"
-              aria-label="Example semantic search query"
-            >
-
-            <button
-              id="demoSearchButton"
-              class="search-button"
-            >
-              Search
-            </button>
-
-          </div>
-
-
-          <div class="demo-info">
-
-            <span id="demoStatus">
-              Example results for "dog playing in snow"
+            <span class="gradient-text">
+                by meaning.
             </span>
 
-            <span class="example-badge">
-              Visual example
-            </span>
-
-          </div>
+        </h1>
 
 
+        <p class="hero-description">
 
-          <div
-            class="photo-grid"
-            id="photoGrid"
-          >
+            Build a local semantic search engine that can find
+            images with natural language, discover similar photos,
+            and search documents based on meaning instead of
+            filenames.
+
+        </p>
 
 
-            <!-- REAL UNSPLASH PHOTO -->
+        <div class="hero-actions">
 
-            <article
-              class="photo-card"
-              data-tags="dog playing snow winter frisbee white"
+            <a
+                href="#demo"
+                class="button button-primary"
             >
+                Try the demo ↓
+            </a>
 
-              <img
-                src="https://images.unsplash.com/photo-1558430100-fa153c59d51a?auto=format&fit=crop&w=900&q=85"
-                alt="White dog playing with a toy in deep snow"
-                loading="eager"
-              >
-
-              <div class="photo-overlay">
-
-                <div class="photo-name">
-                  dog-playing-in-snow.jpg
-                </div>
-
-                <div class="photo-source">
-                  Real photo · Unsplash
-                </div>
-
-              </div>
-
-            </article>
-
-
-
-            <!-- REAL PHOTO -->
-
-            <article
-              class="photo-card"
-              data-tags="dog playing snow winter golden retriever running"
+            <a
+                href="#how"
+                class="button"
             >
-
-              <img
-                src="https://hips.hearstapps.com/hmg-prod/images/golden-retriever-dog-running-on-fresh-snow-royalty-free-image-152643506-1549012155.jpg"
-                alt="Golden retriever running through deep snow"
-                loading="eager"
-              >
-
-              <div class="photo-overlay">
-
-                <div class="photo-name">
-                  retriever-snow.jpg
-                </div>
-
-                <div class="photo-source">
-                  Real photograph
-                </div>
-
-              </div>
-
-            </article>
-
-
-
-            <!-- REAL PHOTO -->
-
-            <article
-              class="photo-card"
-              data-tags="dog playing snow winter golden retriever outdoors"
-            >
-
-              <img
-                src="https://tractive.com/blog/wp-content/uploads/2017/01/header_image_winter_activity-1-1.jpg"
-                alt="Golden retriever playing outside in fresh snow"
-                loading="eager"
-              >
-
-              <div class="photo-overlay">
-
-                <div class="photo-name">
-                  winter-dog.jpg
-                </div>
-
-                <div class="photo-source">
-                  Real photograph
-                </div>
-
-              </div>
-
-            </article>
-
-
-
-            <!-- REAL PHOTO -->
-
-            <article
-              class="photo-card"
-              data-tags="dog snow winter border collie playing ball"
-            >
-
-              <img
-                src="https://www.mitti.se/image-3.312181.274140.20250109085407.4e8285f8f9"
-                alt="Border collie running through snow with a ball"
-                loading="eager"
-              >
-
-              <div class="photo-overlay">
-
-                <div class="photo-name">
-                  collie-winter.jpg
-                </div>
-
-                <div class="photo-source">
-                  Real photograph
-                </div>
-
-              </div>
-
-            </article>
-
-          </div>
-
-
-          <p class="demo-note">
-
-            <strong>What you're seeing:</strong>
-
-            these are real photographs used to demonstrate what
-            text-to-image search looks like. The website is not
-            pretending to run CLIP in JavaScript. Your actual
-            results and similarity scores come from
-            <code>local_search.py</code> and your own FAISS index.
-
-          </p>
+                How it works
+            </a>
 
         </div>
 
-      </div>
+
+
+        <!-- =================================================
+             SEARCH DEMO
+        ================================================== -->
+
+        <div
+            class="demo-shell"
+            id="demo"
+        >
+
+            <div class="demo-window">
+
+                <div class="window-bar">
+
+                    <div class="window-dots">
+
+                        <span class="window-dot"></span>
+                        <span class="window-dot"></span>
+                        <span class="window-dot"></span>
+
+                    </div>
+
+
+                    <div class="window-title">
+                        example image library
+                    </div>
+
+                </div>
+
+
+
+                <div class="demo-body">
+
+                    <div class="search-row">
+
+                        <input
+                            id="demoSearch"
+                            class="search-input"
+                            value=""
+                            placeholder='Try "dog playing in snow"'
+                            autocomplete="off"
+                            aria-label="Search demo images"
+                        >
+
+
+                        <button
+                            id="demoSearchButton"
+                            class="search-button"
+                        >
+                            Search
+                        </button>
+
+                    </div>
+
+
+
+                    <div class="demo-toolbar">
+
+                        <span
+                            id="demoStatus"
+                            class="result-status"
+                        >
+                            12 images in demo library
+                        </span>
+
+
+                        <div class="toolbar-buttons">
+
+                            <button
+                                id="showAllButton"
+                                class="small-button"
+                            >
+                                Show all
+                            </button>
+
+                        </div>
+
+                    </div>
+
+
+
+                    <!-- QUICK SEARCHES -->
+
+                    <div class="suggestions">
+
+                        <button
+                            class="suggestion"
+                            data-query="dog playing in snow"
+                        >
+                            dog playing in snow
+                        </button>
+
+                        <button
+                            class="suggestion"
+                            data-query="red sports car"
+                        >
+                            red sports car
+                        </button>
+
+                        <button
+                            class="suggestion"
+                            data-query="mountains at sunset"
+                        >
+                            mountains at sunset
+                        </button>
+
+                        <button
+                            class="suggestion"
+                            data-query="city at night"
+                        >
+                            city at night
+                        </button>
+
+                        <button
+                            class="suggestion"
+                            data-query="cat indoors"
+                        >
+                            cat indoors
+                        </button>
+
+                        <button
+                            class="suggestion"
+                            data-query="tropical beach"
+                        >
+                            tropical beach
+                        </button>
+
+                    </div>
+
+
+
+                    <!-- =================================================
+                         MIXED IMAGE LIBRARY
+
+                         Put the actual files inside:
+
+                         demo-images/
+
+                         These are LOCAL references, which prevents
+                         third-party hotlink failures.
+                    ================================================== -->
+
+                    <div
+                        class="photo-grid"
+                        id="photoGrid"
+                    >
+
+
+                        <!-- DOG 1 -->
+
+                        <article
+                            class="photo-card"
+                            data-tags="
+                                dog dogs puppy pet animal
+                                playing running snow snowy
+                                winter outdoors white
+                            "
+                        >
+
+                            <img
+                                src="demo-images/dog-snow-01.jpg"
+                                alt="Dog playing in snow"
+                            >
+
+                            <span class="match-pill">
+                                match
+                            </span>
+
+                            <div class="image-error">
+                                Missing:
+                                demo-images/dog-snow-01.jpg
+                            </div>
+
+                            <div class="photo-overlay">
+
+                                <div class="photo-filename">
+                                    dog-snow-01.jpg
+                                </div>
+
+                                <div class="photo-category">
+                                    dog · snow · winter
+                                </div>
+
+                            </div>
+
+                        </article>
+
+
+
+                        <!-- SPORTS CAR -->
+
+                        <article
+                            class="photo-card"
+                            data-tags="
+                                red sports car vehicle
+                                automotive road fast supercar
+                            "
+                        >
+
+                            <img
+                                src="demo-images/red-sports-car.jpg"
+                                alt="Red sports car"
+                            >
+
+                            <span class="match-pill">
+                                match
+                            </span>
+
+                            <div class="image-error">
+                                Missing:
+                                demo-images/red-sports-car.jpg
+                            </div>
+
+                            <div class="photo-overlay">
+
+                                <div class="photo-filename">
+                                    red-sports-car.jpg
+                                </div>
+
+                                <div class="photo-category">
+                                    car · red · automotive
+                                </div>
+
+                            </div>
+
+                        </article>
+
+
+
+                        <!-- MOUNTAINS -->
+
+                        <article
+                            class="photo-card"
+                            data-tags="
+                                mountain mountains sunset
+                                landscape orange sky nature
+                                evening peaks
+                            "
+                        >
+
+                            <img
+                                src="demo-images/mountain-sunset.jpg"
+                                alt="Mountains during sunset"
+                            >
+
+                            <span class="match-pill">
+                                match
+                            </span>
+
+                            <div class="image-error">
+                                Missing:
+                                demo-images/mountain-sunset.jpg
+                            </div>
+
+                            <div class="photo-overlay">
+
+                                <div class="photo-filename">
+                                    mountain-sunset.jpg
+                                </div>
+
+                                <div class="photo-category">
+                                    mountains · sunset
+                                </div>
+
+                            </div>
+
+                        </article>
+
+
+
+                        <!-- CITY -->
+
+                        <article
+                            class="photo-card"
+                            data-tags="
+                                city night urban street
+                                lights buildings downtown
+                                architecture evening
+                            "
+                        >
+
+                            <img
+                                src="demo-images/city-night.jpg"
+                                alt="City street at night"
+                            >
+
+                            <span class="match-pill">
+                                match
+                            </span>
+
+                            <div class="image-error">
+                                Missing:
+                                demo-images/city-night.jpg
+                            </div>
+
+                            <div class="photo-overlay">
+
+                                <div class="photo-filename">
+                                    city-night.jpg
+                                </div>
+
+                                <div class="photo-category">
+                                    city · night · urban
+                                </div>
+
+                            </div>
+
+                        </article>
+
+
+
+                        <!-- DOG 2 -->
+
+                        <article
+                            class="photo-card"
+                            data-tags="
+                                dog dogs retriever pet animal
+                                playing running snow snowy
+                                winter outdoors golden
+                            "
+                        >
+
+                            <img
+                                src="demo-images/dog-snow-02.jpg"
+                                alt="Golden retriever running in snow"
+                            >
+
+                            <span class="match-pill">
+                                match
+                            </span>
+
+                            <div class="image-error">
+                                Missing:
+                                demo-images/dog-snow-02.jpg
+                            </div>
+
+                            <div class="photo-overlay">
+
+                                <div class="photo-filename">
+                                    dog-snow-02.jpg
+                                </div>
+
+                                <div class="photo-category">
+                                    dog · snow · running
+                                </div>
+
+                            </div>
+
+                        </article>
+
+
+
+                        <!-- BEACH -->
+
+                        <article
+                            class="photo-card"
+                            data-tags="
+                                beach ocean sea tropical
+                                summer water palm palms
+                                vacation sand blue
+                            "
+                        >
+
+                            <img
+                                src="demo-images/tropical-beach.jpg"
+                                alt="Tropical beach and ocean"
+                            >
+
+                            <span class="match-pill">
+                                match
+                            </span>
+
+                            <div class="image-error">
+                                Missing:
+                                demo-images/tropical-beach.jpg
+                            </div>
+
+                            <div class="photo-overlay">
+
+                                <div class="photo-filename">
+                                    tropical-beach.jpg
+                                </div>
+
+                                <div class="photo-category">
+                                    beach · ocean · tropical
+                                </div>
+
+                            </div>
+
+                        </article>
+
+
+
+                        <!-- CAT -->
+
+                        <article
+                            class="photo-card"
+                            data-tags="
+                                cat kitten pet animal
+                                indoor indoors house home
+                                sofa couch
+                            "
+                        >
+
+                            <img
+                                src="demo-images/cat-indoors.jpg"
+                                alt="Cat sitting indoors"
+                            >
+
+                            <span class="match-pill">
+                                match
+                            </span>
+
+                            <div class="image-error">
+                                Missing:
+                                demo-images/cat-indoors.jpg
+                            </div>
+
+                            <div class="photo-overlay">
+
+                                <div class="photo-filename">
+                                    cat-indoors.jpg
+                                </div>
+
+                                <div class="photo-category">
+                                    cat · indoor · pet
+                                </div>
+
+                            </div>
+
+                        </article>
+
+
+
+                        <!-- FOREST -->
+
+                        <article
+                            class="photo-card"
+                            data-tags="
+                                forest woods trees green
+                                nature landscape outdoors
+                                woodland plants
+                            "
+                        >
+
+                            <img
+                                src="demo-images/green-forest.jpg"
+                                alt="Green forest"
+                            >
+
+                            <span class="match-pill">
+                                match
+                            </span>
+
+                            <div class="image-error">
+                                Missing:
+                                demo-images/green-forest.jpg
+                            </div>
+
+                            <div class="photo-overlay">
+
+                                <div class="photo-filename">
+                                    green-forest.jpg
+                                </div>
+
+                                <div class="photo-category">
+                                    forest · trees · nature
+                                </div>
+
+                            </div>
+
+                        </article>
+
+
+
+                        <!-- DOG 3 -->
+
+                        <article
+                            class="photo-card"
+                            data-tags="
+                                dog dogs puppy pet animal
+                                playing snow snowy winter
+                                outdoors ball
+                            "
+                        >
+
+                            <img
+                                src="demo-images/dog-snow-03.jpg"
+                                alt="Dog playing with a ball in snow"
+                            >
+
+                            <span class="match-pill">
+                                match
+                            </span>
+
+                            <div class="image-error">
+                                Missing:
+                                demo-images/dog-snow-03.jpg
+                            </div>
+
+                            <div class="photo-overlay">
+
+                                <div class="photo-filename">
+                                    dog-snow-03.jpg
+                                </div>
+
+                                <div class="photo-category">
+                                    dog · playing · snow
+                                </div>
+
+                            </div>
+
+                        </article>
+
+
+
+                        <!-- LAKE -->
+
+                        <article
+                            class="photo-card"
+                            data-tags="
+                                lake water mountains nature
+                                reflection landscape calm
+                                blue outdoors
+                            "
+                        >
+
+                            <img
+                                src="demo-images/mountain-lake.jpg"
+                                alt="Mountain lake"
+                            >
+
+                            <span class="match-pill">
+                                match
+                            </span>
+
+                            <div class="image-error">
+                                Missing:
+                                demo-images/mountain-lake.jpg
+                            </div>
+
+                            <div class="photo-overlay">
+
+                                <div class="photo-filename">
+                                    mountain-lake.jpg
+                                </div>
+
+                                <div class="photo-category">
+                                    lake · mountain · nature
+                                </div>
+
+                            </div>
+
+                        </article>
+
+
+
+                        <!-- ARCHITECTURE -->
+
+                        <article
+                            class="photo-card"
+                            data-tags="
+                                building architecture modern
+                                city glass office structure
+                                geometric urban
+                            "
+                        >
+
+                            <img
+                                src="demo-images/modern-building.jpg"
+                                alt="Modern architecture"
+                            >
+
+                            <span class="match-pill">
+                                match
+                            </span>
+
+                            <div class="image-error">
+                                Missing:
+                                demo-images/modern-building.jpg
+                            </div>
+
+                            <div class="photo-overlay">
+
+                                <div class="photo-filename">
+                                    modern-building.jpg
+                                </div>
+
+                                <div class="photo-category">
+                                    architecture · city
+                                </div>
+
+                            </div>
+
+                        </article>
+
+
+
+                        <!-- DOG 4 -->
+
+                        <article
+                            class="photo-card"
+                            data-tags="
+                                dog dogs collie pet animal
+                                playing running snow snowy
+                                winter outdoors
+                            "
+                        >
+
+                            <img
+                                src="demo-images/dog-snow-04.jpg"
+                                alt="Dog running outside in winter snow"
+                            >
+
+                            <span class="match-pill">
+                                match
+                            </span>
+
+                            <div class="image-error">
+                                Missing:
+                                demo-images/dog-snow-04.jpg
+                            </div>
+
+                            <div class="photo-overlay">
+
+                                <div class="photo-filename">
+                                    dog-snow-04.jpg
+                                </div>
+
+                                <div class="photo-category">
+                                    dog · running · winter
+                                </div>
+
+                            </div>
+
+                        </article>
+
+
+                    </div>
+
+
+
+                    <p class="demo-note">
+
+                        <strong>Demo behavior:</strong>
+
+                        this browser example searches descriptive
+                        tags attached to the sample photographs so
+                        you can demonstrate the interface.
+
+                        Your real project does
+
+                        <strong>not</strong>
+
+                        need those tags — Python creates CLIP
+                        embeddings for the actual images and FAISS
+                        searches those vectors.
+
+                    </p>
+
+                </div>
+
+            </div>
+
+        </div>
 
     </div>
-
-  </div>
 
 </header>
 
 
 
-<!-- ============================================================
+<!-- =========================================================
      HOW IT WORKS
-============================================================ -->
+========================================================= -->
 
 <section id="how">
 
-  <div class="container">
+    <div class="container">
 
-    <div class="eyebrow">
-      How it works
+        <div class="eyebrow">
+            How it works
+        </div>
+
+
+        <h2>
+            Files become vectors.
+            Queries become vectors.
+        </h2>
+
+
+        <p class="section-description">
+
+            Semantic search compares numerical representations
+            of meaning rather than relying only on filenames or
+            exact keywords.
+
+        </p>
+
+
+
+        <div class="pipeline">
+
+            <div class="pipeline-card">
+
+                <div class="step">
+                    01
+                </div>
+
+                <strong>
+                    Your files
+                </strong>
+
+                <p>
+                    Images and text documents stored on your computer.
+                </p>
+
+            </div>
+
+
+            <div class="pipeline-arrow">
+                →
+            </div>
+
+
+            <div class="pipeline-card">
+
+                <div class="step">
+                    02
+                </div>
+
+                <strong>
+                    Embeddings
+                </strong>
+
+                <p>
+                    CLIP or Sentence Transformers converts content into vectors.
+                </p>
+
+            </div>
+
+
+            <div class="pipeline-arrow">
+                →
+            </div>
+
+
+            <div class="pipeline-card">
+
+                <div class="step">
+                    03
+                </div>
+
+                <strong>
+                    FAISS
+                </strong>
+
+                <p>
+                    Normalized vectors are stored in a local search index.
+                </p>
+
+            </div>
+
+
+            <div class="pipeline-arrow">
+                →
+            </div>
+
+
+            <div class="pipeline-card">
+
+                <div class="step">
+                    04
+                </div>
+
+                <strong>
+                    Results
+                </strong>
+
+                <p>
+                    The nearest vectors are mapped back to your original files.
+                </p>
+
+            </div>
+
+        </div>
+
     </div>
-
-
-    <h2>
-      Turn files into vectors.
-      Search the vectors.
-    </h2>
-
-
-    <p class="section-copy">
-
-      Instead of relying on filenames, the Python application
-      represents your images and documents as numerical
-      embeddings. Similar meanings end up closer together in
-      vector space.
-
-    </p>
-
-
-
-    <div class="pipeline">
-
-
-      <div class="pipeline-card">
-
-        <div class="step-number">
-          01
-        </div>
-
-        <strong>
-          Your files
-        </strong>
-
-        <p>
-          Images and documents stored on your computer.
-        </p>
-
-      </div>
-
-
-      <div class="arrow">
-        →
-      </div>
-
-
-      <div class="pipeline-card">
-
-        <div class="step-number">
-          02
-        </div>
-
-        <strong>
-          Embeddings
-        </strong>
-
-        <p>
-          CLIP or Sentence Transformers converts content to vectors.
-        </p>
-
-      </div>
-
-
-      <div class="arrow">
-        →
-      </div>
-
-
-      <div class="pipeline-card">
-
-        <div class="step-number">
-          03
-        </div>
-
-        <strong>
-          FAISS
-        </strong>
-
-        <p>
-          The vectors are stored in a searchable local index.
-        </p>
-
-      </div>
-
-
-      <div class="arrow">
-        →
-      </div>
-
-
-      <div class="pipeline-card">
-
-        <div class="step-number">
-          04
-        </div>
-
-        <strong>
-          Results
-        </strong>
-
-        <p>
-          FAISS returns vectors closest to your query vector.
-        </p>
-
-      </div>
-
-
-    </div>
-
-  </div>
 
 </section>
 
 
 
-<!-- ============================================================
+<!-- =========================================================
      FEATURES
-============================================================ -->
+========================================================= -->
 
 <section id="features">
 
-  <div class="container">
+    <div class="container">
 
-    <div class="eyebrow">
-      Search modes
-    </div>
-
-
-    <h2>
-      Images, similar images and documents.
-    </h2>
-
-
-    <div class="feature-grid">
-
-
-      <article class="feature">
-
-        <div class="feature-icon">
-          T→I
+        <div class="eyebrow">
+            Search modes
         </div>
 
-        <h3>
-          Text → Image
-        </h3>
 
-        <p>
-          Search photos with descriptions like
-          "dog playing in snow" even when the words never
-          appear in the filename.
-        </p>
-
-      </article>
+        <h2>
+            Search more than filenames.
+        </h2>
 
 
 
-      <article class="feature">
+        <div class="feature-grid">
 
-        <div class="feature-icon">
-          I→I
+            <article class="feature">
+
+                <div class="feature-icon">
+                    T→I
+                </div>
+
+                <h3>
+                    Text → Image
+                </h3>
+
+                <p>
+                    Search for an image using a natural-language
+                    description such as "dog playing in snow".
+                </p>
+
+            </article>
+
+
+            <article class="feature">
+
+                <div class="feature-icon">
+                    I→I
+                </div>
+
+                <h3>
+                    Image → Image
+                </h3>
+
+                <p>
+                    Use an existing photograph as the query and
+                    retrieve semantically related images.
+                </p>
+
+            </article>
+
+
+            <article class="feature">
+
+                <div class="feature-icon">
+                    T→T
+                </div>
+
+                <h3>
+                    Text → Text
+                </h3>
+
+                <p>
+                    Search document chunks based on their meaning
+                    rather than exact keyword matches.
+                </p>
+
+            </article>
+
+
+            <article class="feature">
+
+                <div class="feature-icon">
+                    DB
+                </div>
+
+                <h3>
+                    FAISS
+                </h3>
+
+                <p>
+                    Store vectors locally and perform nearest-neighbor
+                    searches across your index.
+                </p>
+
+            </article>
+
+
+            <article class="feature">
+
+                <div class="feature-icon">
+                    ↳
+                </div>
+
+                <h3>
+                    Recursive indexing
+                </h3>
+
+                <p>
+                    Point the program at a directory and recursively
+                    discover supported files.
+                </p>
+
+            </article>
+
+
+            <article class="feature">
+
+                <div class="feature-icon">
+                    PC
+                </div>
+
+                <h3>
+                    Local first
+                </h3>
+
+                <p>
+                    The FAISS indexes and metadata stay on your
+                    own computer.
+                </p>
+
+            </article>
+
         </div>
-
-        <h3>
-          Image → Image
-        </h3>
-
-        <p>
-          Give CLIP another image and retrieve visually or
-          semantically related images from your index.
-        </p>
-
-      </article>
-
-
-
-      <article class="feature">
-
-        <div class="feature-icon">
-          T→T
-        </div>
-
-        <h3>
-          Text → Text
-        </h3>
-
-        <p>
-          Search notes and documents based on their meaning
-          rather than requiring exact keyword matches.
-        </p>
-
-      </article>
-
-
-
-      <article class="feature">
-
-        <div class="feature-icon">
-          DB
-        </div>
-
-        <h3>
-          FAISS index
-        </h3>
-
-        <p>
-          Store normalized embeddings and perform efficient
-          nearest-neighbor vector searches locally.
-        </p>
-
-      </article>
-
-
-
-      <article class="feature">
-
-        <div class="feature-icon">
-          ↳
-        </div>
-
-        <h3>
-          Recursive indexing
-        </h3>
-
-        <p>
-          Point the script at a directory and recursively
-          discover supported images or documents.
-        </p>
-
-      </article>
-
-
-
-      <article class="feature">
-
-        <div class="feature-icon">
-          PC
-        </div>
-
-        <h3>
-          Local first
-        </h3>
-
-        <p>
-          Your FAISS database and file metadata remain on
-          your own machine.
-        </p>
-
-      </article>
-
 
     </div>
-
-  </div>
 
 </section>
 
 
 
-<!-- ============================================================
-     REAL CLI EXPLANATION
-============================================================ -->
+<!-- =========================================================
+     REAL SEARCH
+========================================================= -->
 
 <section>
 
-  <div class="container">
+    <div class="container">
 
-    <div class="eyebrow">
-      The actual search
-    </div>
-
-
-    <h2>
-      This is where CLIP really runs.
-    </h2>
-
-
-    <p class="section-copy">
-
-      The browser page explains the project. The actual semantic
-      search happens in Python. The query is embedded with CLIP
-      and passed to FAISS.
-
-    </p>
-
-
-
-    <div class="terminal">
-
-      <div class="terminal-top">
-
-        <div class="dots">
-          <span class="dot"></span>
-          <span class="dot"></span>
-          <span class="dot"></span>
+        <div class="eyebrow">
+            The real search
         </div>
 
-        <div class="window-title">
-          terminal
-        </div>
 
-      </div>
+        <h2>
+            The Python program does the semantic work.
+        </h2>
 
 
-      <div class="terminal-body"><span class="green">$</span> python local_search.py search-images <span class="blue">"dog playing in snow"</span>
+        <p class="section-description">
 
-<span class="comment"># 1. CLIP converts the text into an embedding</span>
+            The website above demonstrates the interaction.
+            In the real application, CLIP creates the query
+            embedding and FAISS retrieves the nearest image
+            vectors.
+
+        </p>
+
+
+
+        <div class="terminal">
+
+            <div class="terminal-top">
+
+                <div class="window-dots">
+
+                    <span class="window-dot"></span>
+                    <span class="window-dot"></span>
+                    <span class="window-dot"></span>
+
+                </div>
+
+                <div class="window-title">
+                    terminal
+                </div>
+
+            </div>
+
+
+            <div class="terminal-body"><span class="green">$</span> python local_search.py search-images <span class="blue">"dog playing in snow"</span>
+
+<span class="comment"># The text query is converted into a CLIP vector.</span>
 query_vector = model.encode(query)
 
-<span class="comment"># 2. Normalize the query vector</span>
-query_vector = normalize(query_vector)
+<span class="comment"># Normalize it before searching.</span>
+faiss.normalize_L2(query_vector)
 
-<span class="comment"># 3. FAISS searches for nearest image embeddings</span>
+<span class="comment"># Retrieve nearest image embeddings.</span>
 scores, ids = index.search(query_vector, limit)
 
-<span class="comment"># 4. The matching paths from YOUR library are returned</span></div>
+<span class="comment"># Map the result IDs back to real files on disk.</span></div>
+
+        </div>
 
     </div>
-
-  </div>
 
 </section>
 
 
 
-<!-- ============================================================
+<!-- =========================================================
      SETUP
-============================================================ -->
+========================================================= -->
 
 <section id="setup">
 
-  <div class="container">
+    <div class="container">
 
-    <div class="eyebrow">
-      Get started
+        <div class="eyebrow">
+            Get started
+        </div>
+
+
+        <h2>
+            Run the actual project.
+        </h2>
+
+
+        <p class="section-description">
+
+            These commands correspond to the Python CLI used
+            by the local search application.
+
+        </p>
+
+
+
+        <div class="command-panel">
+
+            <div class="tabs">
+
+                <button
+                    class="tab active"
+                    data-command="install"
+                >
+                    Install
+                </button>
+
+                <button
+                    class="tab"
+                    data-command="indexImages"
+                >
+                    Index images
+                </button>
+
+                <button
+                    class="tab"
+                    data-command="searchImages"
+                >
+                    Search images
+                </button>
+
+                <button
+                    class="tab"
+                    data-command="similarImage"
+                >
+                    Similar image
+                </button>
+
+                <button
+                    class="tab"
+                    data-command="indexText"
+                >
+                    Index text
+                </button>
+
+                <button
+                    class="tab"
+                    data-command="searchText"
+                >
+                    Search text
+                </button>
+
+            </div>
+
+
+            <div class="command-area">
+
+                <button
+                    id="copyButton"
+                    class="copy-button"
+                >
+                    Copy
+                </button>
+
+
+                <pre
+                    id="commandCode"
+                    class="command-code"
+                ></pre>
+
+            </div>
+
+        </div>
+
     </div>
-
-
-    <h2>
-      Run it on your own computer.
-    </h2>
-
-
-    <p class="section-copy">
-
-      These buttons contain the actual commands used by the
-      Python CLI from the project.
-
-    </p>
-
-
-
-    <div class="command-panel">
-
-      <div class="tabs">
-
-        <button
-          class="tab active"
-          data-command="install"
-        >
-          Install
-        </button>
-
-        <button
-          class="tab"
-          data-command="indexImages"
-        >
-          Index images
-        </button>
-
-        <button
-          class="tab"
-          data-command="searchImages"
-        >
-          Search images
-        </button>
-
-        <button
-          class="tab"
-          data-command="similarImage"
-        >
-          Similar image
-        </button>
-
-        <button
-          class="tab"
-          data-command="indexText"
-        >
-          Index text
-        </button>
-
-        <button
-          class="tab"
-          data-command="searchText"
-        >
-          Search text
-        </button>
-
-      </div>
-
-
-      <div class="command-area">
-
-        <button
-          id="copyButton"
-          class="copy"
-        >
-          Copy
-        </button>
-
-        <pre
-          id="command"
-          class="command"
-        ></pre>
-
-      </div>
-
-    </div>
-
-  </div>
 
 </section>
 
 
 
-<!-- ============================================================
+<!-- =========================================================
      MODELS
-============================================================ -->
+========================================================= -->
 
 <section>
 
-  <div class="container">
+    <div class="container">
 
-    <div class="eyebrow">
-      Models
+        <div class="eyebrow">
+            Embedding models
+        </div>
+
+
+        <h2>
+            Different models for different data.
+        </h2>
+
+
+
+        <div class="model-grid">
+
+            <div class="model-card">
+
+                <div class="model-type">
+                    Images + text
+                </div>
+
+                <div class="model-name">
+                    sentence-transformers/clip-ViT-B-32
+                </div>
+
+                <p>
+                    CLIP represents images and text in a compatible
+                    embedding space. That is what makes natural-language
+                    image retrieval possible.
+                </p>
+
+            </div>
+
+
+            <div class="model-card">
+
+                <div class="model-type">
+                    Documents
+                </div>
+
+                <div class="model-name">
+                    sentence-transformers/all-MiniLM-L6-v2
+                </div>
+
+                <p>
+                    Document chunks and text queries are converted
+                    into semantic embeddings and compared in the
+                    same vector space.
+                </p>
+
+            </div>
+
+        </div>
+
     </div>
-
-
-    <h2>
-      Two embedding models.
-    </h2>
-
-
-    <div class="models">
-
-
-      <div class="model">
-
-        <div class="model-label">
-          Image + text
-        </div>
-
-        <div class="model-name">
-          sentence-transformers/clip-ViT-B-32
-        </div>
-
-        <p>
-          Used for images. CLIP places images and text in a
-          compatible embedding space, enabling both text-to-image
-          and image-to-image retrieval.
-        </p>
-
-      </div>
-
-
-
-      <div class="model">
-
-        <div class="model-label">
-          Text
-        </div>
-
-        <div class="model-name">
-          sentence-transformers/all-MiniLM-L6-v2
-        </div>
-
-        <p>
-          Used for document chunks. Queries and document text
-          are embedded into the same semantic vector space.
-        </p>
-
-      </div>
-
-
-    </div>
-
-  </div>
 
 </section>
 
 
 
-<!-- ============================================================
-     VECTOR DB
-============================================================ -->
+<!-- =========================================================
+     FAISS
+========================================================= -->
 
 <section>
 
-  <div class="container">
+    <div class="container">
 
-    <div class="eyebrow">
-      Vector database
-    </div>
-
-
-    <h2>
-      FAISS stores the embeddings.
-    </h2>
-
-
-    <p class="section-copy">
-
-      The script L2-normalizes vectors and stores them in
-      <code>IndexFlatIP</code>. With normalized vectors,
-      inner-product ranking corresponds to cosine-similarity
-      ranking.
-
-    </p>
-
-
-
-    <div class="terminal">
-
-      <div class="terminal-top">
-
-        <div class="dots">
-          <span class="dot"></span>
-          <span class="dot"></span>
-          <span class="dot"></span>
+        <div class="eyebrow">
+            Vector search
         </div>
 
-        <div class="window-title">
-          local_search.py
-        </div>
 
-      </div>
+        <h2>
+            Why FAISS IndexFlatIP?
+        </h2>
 
 
-      <div class="terminal-body"><span class="comment"># Normalize embeddings</span>
-embeddings = normalize(embeddings)
+        <p class="section-description">
 
-<span class="comment"># Create the FAISS index</span>
+            The embeddings are L2-normalized before indexing.
+            With normalized vectors, inner-product ranking gives
+            the same ranking as cosine similarity.
+
+        </p>
+
+
+
+        <div class="terminal">
+
+            <div class="terminal-top">
+
+                <div class="window-dots">
+
+                    <span class="window-dot"></span>
+                    <span class="window-dot"></span>
+                    <span class="window-dot"></span>
+
+                </div>
+
+                <div class="window-title">
+                    local_search.py
+                </div>
+
+            </div>
+
+
+            <div class="terminal-body"><span class="comment"># Normalize vectors</span>
+faiss.normalize_L2(embeddings)
+
+<span class="comment"># Create an exact inner-product index</span>
 dimension = embeddings.shape[1]
-
 index = faiss.IndexFlatIP(dimension)
 
-<span class="comment"># Store vectors</span>
+<span class="comment"># Add vectors</span>
 index.add(embeddings)
 
-<span class="comment"># Save the database</span>
+<span class="comment"># Save index</span>
 faiss.write_index(index, ".local_vector_db/images.faiss")</div>
 
-    </div>
+        </div>
 
-  </div>
+    </div>
 
 </section>
 
 
 
-<!-- ============================================================
-     PRIVACY
-============================================================ -->
+<!-- =========================================================
+     FILE STRUCTURE
+========================================================= -->
 
 <section>
 
-  <div class="container">
+    <div class="container">
 
-    <div class="privacy-box">
+        <div class="eyebrow">
+            Project structure
+        </div>
 
-      <div class="eyebrow">
-        Local first
-      </div>
 
-      <h3>
-        Your indexed files stay on your machine.
-      </h3>
+        <h2>
+            Keep the demo self-contained.
+        </h2>
 
-      <p>
 
-        The Python application reads files from your computer
-        and stores the generated FAISS indexes and metadata
-        locally. The embedding models must initially be
-        downloaded, but normal indexing and searching does not
-        require sending your personal image or document
-        collection to a hosted vector database.
+        <p class="section-description">
 
-      </p>
+            Store the website's sample photographs locally so
+            your presentation does not depend on external image
+            hosts.
+
+        </p>
+
+
+
+        <div class="folder-tree">local-vector-search/
+│
+├── index.html
+├── local_search.py
+│
+├── demo-images/
+│   ├── dog-snow-01.jpg
+│   ├── dog-snow-02.jpg
+│   ├── dog-snow-03.jpg
+│   ├── dog-snow-04.jpg
+│   ├── red-sports-car.jpg
+│   ├── mountain-sunset.jpg
+│   ├── city-night.jpg
+│   ├── tropical-beach.jpg
+│   ├── cat-indoors.jpg
+│   ├── green-forest.jpg
+│   ├── mountain-lake.jpg
+│   └── modern-building.jpg
+│
+└── .local_vector_db/
+    ├── images.faiss
+    ├── images.json
+    ├── text.faiss
+    └── text.json</div>
 
     </div>
-
-  </div>
 
 </section>
 
 
 
-<!-- ============================================================
+<!-- =========================================================
+     PRIVACY
+========================================================= -->
+
+<section>
+
+    <div class="container">
+
+        <div class="privacy-box">
+
+            <div class="eyebrow">
+                Local first
+            </div>
+
+
+            <h3>
+                Your indexed library stays on your computer.
+            </h3>
+
+
+            <p>
+
+                The Python application reads local files and stores
+                its generated FAISS indexes and metadata locally.
+                The embedding models must initially be downloaded,
+                but normal searching does not require uploading your
+                personal image or document collection to a hosted
+                vector database.
+
+            </p>
+
+        </div>
+
+    </div>
+
+</section>
+
+
+
+<!-- =========================================================
      CTA
-============================================================ -->
+========================================================= -->
 
 <div class="container">
 
-  <div class="cta">
+    <div class="cta">
 
-    <div class="eyebrow">
-      Build it yourself
+        <div class="eyebrow">
+            Build it yourself
+        </div>
+
+
+        <h2>
+            Your own semantic file search.
+        </h2>
+
+
+        <p>
+
+            A compact project for learning multimodal embeddings,
+            semantic retrieval and vector databases without hiding
+            the important parts behind a framework.
+
+        </p>
+
+
+        <!-- REPLACE WITH YOUR REPOSITORY -->
+
+        <a
+            class="button button-primary"
+            href="https://github.com/YOUR_USERNAME/YOUR_REPOSITORY"
+            target="_blank"
+            rel="noopener noreferrer"
+        >
+            View source on GitHub ↗
+        </a>
+
     </div>
-
-
-    <h2>
-      Your own semantic search engine.
-    </h2>
-
-
-    <p>
-
-      A small project for learning multimodal embeddings,
-      semantic retrieval and vector databases without hiding
-      everything behind a framework.
-
-    </p>
-
-
-    <!-- CHANGE THIS URL -->
-
-    <a
-      class="button button-primary"
-      href="https://github.com/YOUR_USERNAME/YOUR_REPOSITORY"
-      target="_blank"
-      rel="noopener noreferrer"
-    >
-      View source on GitHub ↗
-    </a>
-
-  </div>
 
 </div>
 
 
 
-<!-- ============================================================
+<!-- =========================================================
      FOOTER
-============================================================ -->
+========================================================= -->
 
 <footer>
 
-  <div class="container footer-inner">
+    <div class="container footer-inner">
 
-    <div>
-      Local Vector Search
+        <div>
+            Local Vector Search
+        </div>
+
+        <div>
+            Python · CLIP · Sentence Transformers · FAISS
+        </div>
+
     </div>
-
-    <div>
-      Python · CLIP · Sentence Transformers · FAISS
-    </div>
-
-  </div>
 
 </footer>
 
@@ -2083,256 +3233,522 @@ faiss.write_index(index, ".local_vector_db/images.faiss")</div>
 
 <script>
 
-/* ============================================================
-   COMMANDS
-============================================================ */
+    /* =========================================================
+       DEMO IMAGE ERROR HANDLING
+    ========================================================= */
 
-const commands = {
-
-  install:
-`pip install sentence-transformers faiss-cpu pillow numpy tqdm`,
-
-  indexImages:
-`python local_search.py index-images ~/Pictures`,
-
-  searchImages:
-`python local_search.py search-images "dog playing in snow"`,
-
-  similarImage:
-`python local_search.py similar-image example.jpg`,
-
-  indexText:
-`python local_search.py index-text ~/Documents`,
-
-  searchText:
-`python local_search.py search-text "notes about machine learning"`
-
-};
+    const demoImages =
+        document.querySelectorAll(
+            ".photo-card img"
+        );
 
 
-const commandElement =
-  document.getElementById("command");
+    demoImages.forEach(image => {
 
-const copyButton =
-  document.getElementById("copyButton");
+        image.addEventListener(
+            "error",
+            () => {
 
-const tabs =
-  document.querySelectorAll(".tab");
+                const card =
+                    image.closest(
+                        ".photo-card"
+                    );
 
-let activeCommand =
-  "install";
+                card.classList.add(
+                    "failed"
+                );
+
+            }
+        );
+
+    });
 
 
-function renderCommand() {
 
-  commandElement.textContent =
-    commands[activeCommand];
+    /* =========================================================
+       DEMO SEARCH
+    ========================================================= */
 
-}
+    const searchInput =
+        document.getElementById(
+            "demoSearch"
+        );
+
+    const searchButton =
+        document.getElementById(
+            "demoSearchButton"
+        );
+
+    const showAllButton =
+        document.getElementById(
+            "showAllButton"
+        );
+
+    const statusElement =
+        document.getElementById(
+            "demoStatus"
+        );
+
+    const photoGrid =
+        document.getElementById(
+            "photoGrid"
+        );
+
+    const photoCards =
+        [
+            ...document.querySelectorAll(
+                ".photo-card"
+            )
+        ];
 
 
-tabs.forEach(tab => {
+    /*
+        Keep a copy of the original order.
 
-  tab.addEventListener("click", () => {
+        Search results can be ranked, then "Show all"
+        restores the original library.
+    */
 
-    tabs.forEach(item =>
-      item.classList.remove("active")
+    const originalOrder =
+        [...photoCards];
+
+
+    const stopWords =
+        new Set([
+            "a",
+            "an",
+            "the",
+            "in",
+            "on",
+            "at",
+            "with",
+            "and",
+            "or",
+            "of",
+            "to",
+            "for",
+            "from"
+        ]);
+
+
+
+    function tokenize(text) {
+
+        return text
+            .toLowerCase()
+
+            .replace(
+                /[^a-z0-9\s]/g,
+                " "
+            )
+
+            .split(/\s+/)
+
+            .filter(word =>
+                word.length > 1 &&
+                !stopWords.has(word)
+            );
+
+    }
+
+
+
+    function calculateMatch(
+        queryWords,
+        card
+    ) {
+
+        const tags =
+            tokenize(
+                card.dataset.tags
+            );
+
+
+        let matches =
+            0;
+
+
+        queryWords.forEach(word => {
+
+            if (
+                tags.includes(word)
+            ) {
+
+                matches++;
+
+            }
+
+        });
+
+
+        const ratio =
+            queryWords.length
+                ? matches /
+                  queryWords.length
+                : 0;
+
+
+        return {
+            card,
+            matches,
+            ratio
+        };
+
+    }
+
+
+
+    function runDemoSearch() {
+
+        const query =
+            searchInput.value.trim();
+
+
+        if (!query) {
+
+            showAllImages();
+
+            return;
+
+        }
+
+
+        const queryWords =
+            tokenize(query);
+
+
+        const ranked =
+            photoCards
+
+                .map(card =>
+                    calculateMatch(
+                        queryWords,
+                        card
+                    )
+                )
+
+                .filter(result =>
+                    result.matches > 0
+                )
+
+                .sort(
+                    (a, b) =>
+                        b.ratio -
+                        a.ratio
+                );
+
+
+        /*
+            Hide every card first.
+        */
+
+        photoCards.forEach(card => {
+
+            card.style.display =
+                "none";
+
+            card.classList.remove(
+                "search-result"
+            );
+
+        });
+
+
+        /*
+            Then show results in ranked order.
+        */
+
+        ranked.forEach(result => {
+
+            result.card.style.display =
+                "";
+
+            result.card.classList.add(
+                "search-result"
+            );
+
+            photoGrid.appendChild(
+                result.card
+            );
+
+        });
+
+
+
+        if (ranked.length === 0) {
+
+            statusElement.textContent =
+                `No demo images match "${query}"`;
+
+        } else {
+
+            statusElement.textContent =
+                `${ranked.length} demo matches for "${query}"`;
+
+        }
+
+    }
+
+
+
+    function showAllImages() {
+
+        searchInput.value =
+            "";
+
+
+        originalOrder.forEach(card => {
+
+            card.style.display =
+                "";
+
+            card.classList.remove(
+                "search-result"
+            );
+
+            photoGrid.appendChild(
+                card
+            );
+
+        });
+
+
+        statusElement.textContent =
+            `${originalOrder.length} images in demo library`;
+
+    }
+
+
+
+    searchButton.addEventListener(
+        "click",
+        runDemoSearch
     );
 
-    tab.classList.add("active");
 
-    activeCommand =
-      tab.dataset.command;
+    searchInput.addEventListener(
+        "keydown",
+        event => {
+
+            if (
+                event.key === "Enter"
+            ) {
+
+                runDemoSearch();
+
+            }
+
+        }
+    );
+
+
+    showAllButton.addEventListener(
+        "click",
+        showAllImages
+    );
+
+
+
+    /* =========================================================
+       QUICK SEARCH BUTTONS
+    ========================================================= */
+
+    const suggestions =
+        document.querySelectorAll(
+            ".suggestion"
+        );
+
+
+    suggestions.forEach(button => {
+
+        button.addEventListener(
+            "click",
+            () => {
+
+                searchInput.value =
+                    button.dataset.query;
+
+                runDemoSearch();
+
+            }
+        );
+
+    });
+
+
+
+    /* =========================================================
+       COMMAND TABS
+    ========================================================= */
+
+    const commands = {
+
+        install:
+`pip install sentence-transformers faiss-cpu pillow numpy tqdm`,
+
+        indexImages:
+`python local_search.py index-images ~/Pictures`,
+
+        searchImages:
+`python local_search.py search-images "dog playing in snow"`,
+
+        similarImage:
+`python local_search.py similar-image example.jpg`,
+
+        indexText:
+`python local_search.py index-text ~/Documents`,
+
+        searchText:
+`python local_search.py search-text "notes about machine learning"`
+
+    };
+
+
+    const commandCode =
+        document.getElementById(
+            "commandCode"
+        );
+
+    const copyButton =
+        document.getElementById(
+            "copyButton"
+        );
+
+    const tabs =
+        document.querySelectorAll(
+            ".tab"
+        );
+
+
+    let activeCommand =
+        "install";
+
+
+
+    function renderCommand() {
+
+        commandCode.textContent =
+            commands[
+                activeCommand
+            ];
+
+    }
+
+
+
+    tabs.forEach(tab => {
+
+        tab.addEventListener(
+            "click",
+            () => {
+
+                tabs.forEach(item => {
+
+                    item.classList.remove(
+                        "active"
+                    );
+
+                });
+
+
+                tab.classList.add(
+                    "active"
+                );
+
+
+                activeCommand =
+                    tab.dataset.command;
+
+
+                renderCommand();
+
+            }
+        );
+
+    });
+
 
     renderCommand();
 
-  });
 
-});
 
+    /* =========================================================
+       COPY COMMAND
+    ========================================================= */
 
-renderCommand();
+    copyButton.addEventListener(
+        "click",
+        async () => {
 
+            const text =
+                commands[
+                    activeCommand
+                ];
 
 
-/* ============================================================
-   COPY COMMAND
-============================================================ */
+            try {
 
-copyButton.addEventListener("click", async () => {
+                await navigator
+                    .clipboard
+                    .writeText(
+                        text
+                    );
 
-  const value =
-    commands[activeCommand];
+            } catch {
 
-  try {
+                /*
+                    Fallback for browsers that block the
+                    Clipboard API on file:// pages.
+                */
 
-    await navigator.clipboard.writeText(value);
+                const textarea =
+                    document.createElement(
+                        "textarea"
+                    );
 
-  } catch {
 
-    const textarea =
-      document.createElement("textarea");
+                textarea.value =
+                    text;
 
-    textarea.value = value;
 
-    document.body.appendChild(textarea);
+                document.body
+                    .appendChild(
+                        textarea
+                    );
 
-    textarea.select();
 
-    document.execCommand("copy");
+                textarea.select();
 
-    textarea.remove();
 
-  }
+                document.execCommand(
+                    "copy"
+                );
 
-  copyButton.textContent =
-    "Copied";
 
-  setTimeout(() => {
+                textarea.remove();
 
-    copyButton.textContent =
-      "Copy";
+            }
 
-  }, 1400);
 
-});
+            copyButton.textContent =
+                "Copied";
 
 
+            setTimeout(
+                () => {
 
-/* ============================================================
-   DEMO GALLERY SEARCH
-============================================================ */
+                    copyButton.textContent =
+                        "Copy";
 
-/*
-  IMPORTANT:
+                },
+                1400
+            );
 
-  This search only filters the REAL example photographs
-  displayed on this webpage.
-
-  It does NOT pretend to execute CLIP or FAISS.
-
-  The real vector search is performed by local_search.py.
-*/
-
-const searchInput =
-  document.getElementById("demoSearch");
-
-const searchButton =
-  document.getElementById("demoSearchButton");
-
-const status =
-  document.getElementById("demoStatus");
-
-const cards =
-  [...document.querySelectorAll(".photo-card")];
-
-
-function runGalleryDemo() {
-
-  const query =
-    searchInput.value
-      .trim()
-      .toLowerCase();
-
-  if (!query) {
-
-    cards.forEach(card => {
-      card.style.display = "";
-    });
-
-    status.textContent =
-      "Showing all example photographs";
-
-    return;
-
-  }
-
-
-  const words =
-    query.split(/\s+/);
-
-
-  let visible =
-    0;
-
-
-  cards.forEach(card => {
-
-    const tags =
-      card.dataset.tags.toLowerCase();
-
-    /*
-      A card remains visible when at least one meaningful
-      query word occurs in its descriptive tags.
-    */
-
-    const matches =
-      words.some(word =>
-        word.length > 2 &&
-        tags.includes(word)
-      );
-
-
-    if (matches) {
-
-      card.style.display =
-        "";
-
-      visible++;
-
-    } else {
-
-      card.style.display =
-        "none";
-
-    }
-
-  });
-
-
-  if (visible > 0) {
-
-    status.textContent =
-      `Example photographs matching "${query}"`;
-
-  } else {
-
-    /*
-      We do NOT manufacture fake search results.
-
-      If the tiny example gallery has no matching tags,
-      we say so.
-    */
-
-    status.textContent =
-      `No matching photographs in this small website demo. ` +
-      `Your Python CLIP index can search your full library.`;
-
-  }
-
-}
-
-
-searchButton.addEventListener(
-  "click",
-  runGalleryDemo
-);
-
-
-searchInput.addEventListener(
-  "keydown",
-  event => {
-
-    if (event.key === "Enter") {
-
-      runGalleryDemo();
-
-    }
-
-  }
-);
+        }
+    );
 
 </script>
+
 
 </body>
 </html>
