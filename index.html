@@ -4,1342 +4,1088 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
+<title>Local Vector Search — CLIP + FAISS</title>
+
 <meta
-    name="description"
-    content="Build a local semantic search engine for images and documents with Python, CLIP, Sentence Transformers and FAISS."
+  name="description"
+  content="Build a local semantic image and document search engine with Python, CLIP, Sentence Transformers and FAISS."
 >
 
-<title>Local Vector Search</title>
-
 <style>
-/* =========================================================
-   VARIABLES
-   ========================================================= */
+/* ============================================================
+   BASE
+============================================================ */
 
 :root {
-    --bg: #080b0f;
-    --surface: #0d1218;
-    --surface-2: #111821;
-    --surface-3: #151e29;
+  --bg: #080c10;
+  --surface: #0d131a;
+  --surface2: #111922;
+  --surface3: #16202b;
+  --border: #202c39;
+  --border2: #2c3b4a;
 
-    --border: #202b37;
-    --border-light: #2a3745;
+  --text: #f3f6f8;
+  --muted: #8d9aaa;
+  --muted2: #657283;
 
-    --text: #f1f5f9;
-    --muted: #8d9aaa;
-    --muted-2: #667383;
+  --green: #59e5aa;
+  --green-soft: rgba(89,229,170,.09);
+  --blue: #79aaff;
+  --yellow: #f1ce78;
 
-    --green: #58e6a9;
-    --green-dark: #09291d;
-    --green-soft: rgba(88, 230, 169, 0.09);
+  --max: 1140px;
 
-    --blue: #72a7ff;
-    --purple: #b38cff;
-    --yellow: #e6c875;
-
-    --max-width: 1120px;
-
-    --mono:
-        "SFMono-Regular",
-        Consolas,
-        "Liberation Mono",
-        Menlo,
-        monospace;
+  --mono:
+    "SFMono-Regular",
+    Consolas,
+    "Liberation Mono",
+    Menlo,
+    monospace;
 }
 
-
-/* =========================================================
-   RESET
-   ========================================================= */
-
 * {
-    box-sizing: border-box;
+  box-sizing: border-box;
 }
 
 html {
-    scroll-behavior: smooth;
+  scroll-behavior: smooth;
 }
 
 body {
-    margin: 0;
+  margin: 0;
 
-    background:
-        radial-gradient(
-            circle at 50% -10%,
-            rgba(88, 230, 169, 0.07),
-            transparent 30%
-        ),
-        var(--bg);
+  color: var(--text);
 
-    color: var(--text);
+  background:
+    radial-gradient(
+      circle at 50% -10%,
+      rgba(89,229,170,.08),
+      transparent 32%
+    ),
+    var(--bg);
 
-    font-family:
-        Inter,
-        ui-sans-serif,
-        system-ui,
-        -apple-system,
-        BlinkMacSystemFont,
-        "Segoe UI",
-        sans-serif;
+  font-family:
+    Inter,
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
 
-    line-height: 1.6;
+  line-height: 1.6;
 }
 
 a {
-    color: inherit;
-    text-decoration: none;
+  color: inherit;
+  text-decoration: none;
+}
+
+button,
+input {
+  font: inherit;
 }
 
 button {
-    font: inherit;
+  cursor: pointer;
+}
+
+img {
+  display: block;
+  max-width: 100%;
 }
 
 .container {
-    width: min(
-        var(--max-width),
-        calc(100% - 40px)
-    );
-
-    margin: 0 auto;
+  width: min(var(--max), calc(100% - 40px));
+  margin: 0 auto;
 }
 
 
-/* =========================================================
-   NAVIGATION
-   ========================================================= */
+/* ============================================================
+   NAV
+============================================================ */
 
 nav {
-    position: sticky;
-    top: 0;
-    z-index: 100;
+  position: sticky;
+  top: 0;
+  z-index: 100;
 
-    background: rgba(8, 11, 15, 0.82);
+  border-bottom: 1px solid rgba(255,255,255,.05);
 
-    backdrop-filter: blur(18px);
-    -webkit-backdrop-filter: blur(18px);
+  background: rgba(8,12,16,.84);
 
-    border-bottom: 1px solid rgba(255,255,255,0.05);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
 }
 
 .nav-inner {
-    height: 68px;
+  height: 68px;
 
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 }
 
 .logo {
-    display: flex;
-    align-items: center;
-    gap: 11px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
 
-    font-size: 15px;
-    font-weight: 750;
-
-    letter-spacing: -0.02em;
+  font-size: 15px;
+  font-weight: 800;
 }
 
-.logo-icon {
-    width: 32px;
-    height: 32px;
+.logo-mark {
+  width: 32px;
+  height: 32px;
 
-    display: grid;
-    place-items: center;
+  display: grid;
+  place-items: center;
 
-    border-radius: 9px;
+  border: 1px solid rgba(89,229,170,.22);
+  border-radius: 9px;
 
-    background: var(--green-soft);
+  background: var(--green-soft);
 
-    border:
-        1px solid
-        rgba(88,230,169,0.2);
+  color: var(--green);
 
-    color: var(--green);
-
-    font-family: var(--mono);
+  font-family: var(--mono);
 }
 
 .nav-links {
-    display: flex;
-    align-items: center;
-    gap: 26px;
+  display: flex;
+  align-items: center;
+  gap: 25px;
 
-    font-size: 13px;
+  color: var(--muted);
 
-    color: var(--muted);
-}
-
-.nav-links a {
-    transition: color .2s ease;
+  font-size: 13px;
 }
 
 .nav-links a:hover {
-    color: white;
+  color: white;
 }
 
-.github {
-    padding: 8px 14px;
+.github-button {
+  padding: 8px 13px;
 
-    border:
-        1px solid
-        var(--border);
+  border: 1px solid var(--border);
+  border-radius: 8px;
 
-    border-radius: 8px;
-
-    background: var(--surface);
+  background: var(--surface);
 }
 
 
-/* =========================================================
+/* ============================================================
    HERO
-   ========================================================= */
+============================================================ */
 
 .hero {
-    padding:
-        120px 0
-        90px;
+  padding: 105px 0 70px;
 
-    text-align: center;
+  text-align: center;
 }
 
 .badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
 
-    margin-bottom: 24px;
+  margin-bottom: 23px;
 
-    padding: 6px 12px;
+  padding: 6px 12px;
 
-    border-radius: 999px;
+  border: 1px solid rgba(89,229,170,.22);
+  border-radius: 999px;
 
-    border:
-        1px solid
-        rgba(88,230,169,.22);
+  background: var(--green-soft);
 
-    background:
-        var(--green-soft);
+  color: var(--green);
 
-    color:
-        var(--green);
-
-    font-size: 12px;
-    font-weight: 700;
+  font-size: 12px;
+  font-weight: 750;
 }
 
 .badge-dot {
-    width: 6px;
-    height: 6px;
+  width: 6px;
+  height: 6px;
 
-    border-radius: 50%;
+  border-radius: 50%;
 
-    background: var(--green);
+  background: var(--green);
 
-    box-shadow:
-        0 0 12px
-        rgba(88,230,169,.8);
+  box-shadow: 0 0 12px var(--green);
 }
 
 h1 {
-    max-width: 900px;
+  max-width: 920px;
 
-    margin:
-        0 auto;
+  margin: 0 auto;
 
-    font-size:
-        clamp(
-            48px,
-            7vw,
-            82px
-        );
+  font-size: clamp(48px,7vw,82px);
 
-    line-height: 1;
+  line-height: 1;
 
-    letter-spacing:
-        -.055em;
+  letter-spacing: -.055em;
 }
 
 .gradient {
-    background:
-        linear-gradient(
-            90deg,
-            var(--green),
-            #9cf3cd,
-            var(--blue)
-        );
+  color: transparent;
 
-    -webkit-background-clip:
-        text;
+  background:
+    linear-gradient(
+      90deg,
+      var(--green),
+      #a3f3d2,
+      var(--blue)
+    );
 
-    background-clip:
-        text;
-
-    color:
-        transparent;
+  background-clip: text;
+  -webkit-background-clip: text;
 }
 
-.hero-text {
-    max-width:
-        690px;
+.hero-description {
+  max-width: 700px;
 
-    margin:
-        27px auto 0;
+  margin: 27px auto 0;
 
-    color:
-        var(--muted);
+  color: var(--muted);
 
-    font-size:
-        18px;
+  font-size: 18px;
 }
 
-.hero-actions {
-    margin-top:
-        34px;
+.hero-buttons {
+  margin-top: 32px;
 
-    display:
-        flex;
+  display: flex;
+  justify-content: center;
+  gap: 11px;
 
-    justify-content:
-        center;
-
-    flex-wrap:
-        wrap;
-
-    gap:
-        12px;
+  flex-wrap: wrap;
 }
 
 .button {
-    display:
-        inline-flex;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
 
-    align-items:
-        center;
+  padding: 11px 17px;
 
-    justify-content:
-        center;
+  border: 1px solid var(--border);
+  border-radius: 9px;
 
-    gap:
-        8px;
+  background: var(--surface);
 
-    padding:
-        11px 17px;
+  color: white;
 
-    border-radius:
-        9px;
+  font-size: 14px;
+  font-weight: 700;
 
-    border:
-        1px solid
-        var(--border);
-
-    background:
-        var(--surface);
-
-    color:
-        white;
-
-    font-size:
-        14px;
-
-    font-weight:
-        700;
-
-    transition:
-        transform .2s ease,
-        border-color .2s ease,
-        background .2s ease;
+  transition: .2s ease;
 }
 
 .button:hover {
-    transform:
-        translateY(-2px);
+  transform: translateY(-2px);
 
-    border-color:
-        var(--border-light);
+  border-color: var(--border2);
 }
 
 .button-primary {
-    background:
-        var(--green);
+  border-color: var(--green);
 
-    border-color:
-        var(--green);
+  background: var(--green);
 
-    color:
-        #06110c;
+  color: #07120d;
 }
 
 
-/* =========================================================
-   HERO TERMINAL
-   ========================================================= */
+/* ============================================================
+   REAL PHOTO DEMO
+============================================================ */
 
-.hero-terminal {
-    max-width:
-        880px;
+.demo-shell {
+  max-width: 960px;
 
-    margin:
-        75px auto 0;
+  margin: 72px auto 0;
 
-    padding:
-        14px;
+  padding: 14px;
 
-    border-radius:
-        18px;
+  border: 1px solid rgba(89,229,170,.14);
+  border-radius: 18px;
 
-    border:
-        1px solid
-        rgba(88,230,169,.13);
+  background:
+    linear-gradient(
+      145deg,
+      rgba(89,229,170,.07),
+      rgba(121,170,255,.025)
+    );
 
-    background:
-        linear-gradient(
-            145deg,
-            rgba(88,230,169,.08),
-            rgba(114,167,255,.03)
-        );
+  box-shadow:
+    0 40px 100px rgba(0,0,0,.4);
 
-    box-shadow:
-        0 40px 100px
-        rgba(0,0,0,.35);
-
-    text-align:
-        left;
+  text-align: left;
 }
 
-.terminal {
-    overflow:
-        hidden;
+.demo-window {
+  overflow: hidden;
 
-    border:
-        1px solid
-        var(--border);
+  border: 1px solid var(--border);
+  border-radius: 12px;
 
-    border-radius:
-        12px;
-
-    background:
-        #080c11;
+  background: #090e14;
 }
 
-.terminal-bar {
-    height:
-        44px;
+.window-bar {
+  height: 45px;
 
-    display:
-        flex;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 
-    align-items:
-        center;
+  padding: 0 15px;
 
-    justify-content:
-        space-between;
-
-    padding:
-        0 15px;
-
-    border-bottom:
-        1px solid
-        var(--border);
+  border-bottom: 1px solid var(--border);
 }
 
-.terminal-dots {
-    display:
-        flex;
-
-    gap:
-        7px;
+.dots {
+  display: flex;
+  gap: 7px;
 }
 
-.terminal-dot {
-    width:
-        9px;
+.dot {
+  width: 9px;
+  height: 9px;
 
-    height:
-        9px;
+  border-radius: 50%;
 
-    border-radius:
-        50%;
-
-    background:
-        #344050;
+  background: #344152;
 }
 
-.terminal-title {
-    color:
-        var(--muted-2);
+.window-title {
+  color: var(--muted2);
 
-    font:
-        11px
-        var(--mono);
+  font: 11px var(--mono);
 }
 
-.terminal-content {
-    padding:
-        26px;
-
-    overflow-x:
-        auto;
-
-    font:
-        13px/1.9
-        var(--mono);
-
-    color:
-        #bcc7d2;
+.demo-body {
+  padding: 27px;
 }
 
-.prompt {
-    color:
-        var(--green);
+.search-bar {
+  display: flex;
+  gap: 10px;
 }
 
-.argument {
-    color:
-        var(--blue);
+.search-input {
+  flex: 1;
+
+  min-width: 0;
+
+  padding: 14px 16px;
+
+  outline: none;
+
+  border: 1px solid var(--border);
+  border-radius: 9px;
+
+  background: #070b10;
+
+  color: white;
 }
 
-.output {
-    color:
-        #7f8c9b;
+.search-input:focus {
+  border-color: var(--green);
+
+  box-shadow:
+    0 0 0 3px var(--green-soft);
 }
 
-.score {
-    color:
-        var(--yellow);
+.search-button {
+  padding: 0 22px;
+
+  border: 0;
+  border-radius: 9px;
+
+  background: var(--green);
+
+  color: #07120d;
+
+  font-weight: 800;
+}
+
+.demo-info {
+  margin: 18px 0 14px;
+
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+
+  color: var(--muted);
+
+  font-size: 12px;
+}
+
+.example-badge {
+  flex: 0 0 auto;
+
+  padding: 4px 8px;
+
+  border: 1px solid var(--border);
+  border-radius: 999px;
+
+  color: var(--muted2);
+
+  font-size: 10px;
+  font-weight: 700;
+
+  text-transform: uppercase;
+  letter-spacing: .07em;
 }
 
 
-/* =========================================================
+/* ============================================================
+   PHOTO CARDS
+============================================================ */
+
+.photo-grid {
+  display: grid;
+
+  grid-template-columns:
+    repeat(4,1fr);
+
+  gap: 11px;
+}
+
+.photo-card {
+  position: relative;
+
+  overflow: hidden;
+
+  aspect-ratio: 1 / 1.08;
+
+  border: 1px solid var(--border);
+  border-radius: 10px;
+
+  background: var(--surface2);
+
+  transition:
+    transform .2s ease,
+    border-color .2s ease,
+    opacity .25s ease;
+}
+
+.photo-card:hover {
+  transform: translateY(-3px);
+
+  border-color: var(--border2);
+}
+
+.photo-card img {
+  width: 100%;
+  height: 100%;
+
+  object-fit: cover;
+}
+
+.photo-overlay {
+  position: absolute;
+
+  right: 7px;
+  bottom: 7px;
+  left: 7px;
+
+  padding: 8px 9px;
+
+  border: 1px solid rgba(255,255,255,.08);
+  border-radius: 7px;
+
+  background: rgba(5,9,13,.82);
+
+  backdrop-filter: blur(9px);
+  -webkit-backdrop-filter: blur(9px);
+}
+
+.photo-name {
+  overflow: hidden;
+
+  color: #dce4eb;
+
+  font-size: 10px;
+
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.photo-source {
+  margin-top: 2px;
+
+  color: #758291;
+
+  font-size: 9px;
+}
+
+.demo-note {
+  margin: 14px 0 0;
+
+  color: var(--muted2);
+
+  font-size: 11px;
+}
+
+.demo-note strong {
+  color: #aeb9c4;
+}
+
+
+/* ============================================================
    SECTIONS
-   ========================================================= */
+============================================================ */
 
 section {
-    padding:
-        100px 0;
+  padding: 95px 0;
 }
 
-.section-eyebrow {
-    margin-bottom:
-        12px;
+.eyebrow {
+  margin-bottom: 11px;
 
-    color:
-        var(--green);
+  color: var(--green);
 
-    font-size:
-        12px;
+  font-size: 12px;
+  font-weight: 800;
 
-    font-weight:
-        750;
+  letter-spacing: .12em;
 
-    letter-spacing:
-        .12em;
-
-    text-transform:
-        uppercase;
+  text-transform: uppercase;
 }
 
 h2 {
-    margin:
-        0;
+  max-width: 800px;
 
-    max-width:
-        800px;
+  margin: 0;
 
-    font-size:
-        clamp(
-            34px,
-            5vw,
-            52px
-        );
+  font-size: clamp(34px,5vw,51px);
 
-    line-height:
-        1.08;
+  line-height: 1.08;
 
-    letter-spacing:
-        -.04em;
+  letter-spacing: -.04em;
 }
 
-.section-description {
-    max-width:
-        650px;
+.section-copy {
+  max-width: 650px;
 
-    margin:
-        18px 0 0;
+  margin: 17px 0 0;
 
-    color:
-        var(--muted);
+  color: var(--muted);
 
-    font-size:
-        16px;
+  font-size: 16px;
 }
 
 
-/* =========================================================
-   COMPARISON
-   ========================================================= */
-
-.comparison {
-    margin-top:
-        50px;
-
-    display:
-        grid;
-
-    grid-template-columns:
-        1fr 1fr;
-
-    gap:
-        16px;
-}
-
-.comparison-card {
-    padding:
-        28px;
-
-    border:
-        1px solid
-        var(--border);
-
-    border-radius:
-        14px;
-
-    background:
-        var(--surface);
-}
-
-.comparison-card.highlight {
-    border-color:
-        rgba(88,230,169,.25);
-
-    background:
-        linear-gradient(
-            145deg,
-            rgba(88,230,169,.07),
-            var(--surface)
-        );
-}
-
-.comparison-label {
-    margin-bottom:
-        22px;
-
-    color:
-        var(--muted);
-
-    font-size:
-        12px;
-
-    font-weight:
-        700;
-
-    text-transform:
-        uppercase;
-
-    letter-spacing:
-        .08em;
-}
-
-.comparison-card.highlight
-.comparison-label {
-    color:
-        var(--green);
-}
-
-.search-example {
-    padding:
-        14px;
-
-    border:
-        1px solid
-        var(--border);
-
-    border-radius:
-        8px;
-
-    background:
-        #080c11;
-
-    font:
-        13px
-        var(--mono);
-
-    color:
-        #c6d0da;
-}
-
-.example-result {
-    margin-top:
-        12px;
-
-    padding:
-        15px;
-
-    border-radius:
-        8px;
-
-    background:
-        var(--surface-2);
-
-    color:
-        var(--muted);
-
-    font-size:
-        13px;
-}
-
-
-/* =========================================================
-   ARCHITECTURE
-   ========================================================= */
+/* ============================================================
+   HOW IT WORKS
+============================================================ */
 
 .pipeline {
-    margin-top:
-        55px;
+  margin-top: 50px;
 
-    display:
-        grid;
+  display: grid;
 
-    grid-template-columns:
-        repeat(7, auto);
+  grid-template-columns:
+    1fr auto 1fr auto 1fr auto 1fr;
 
-    align-items:
-        center;
+  gap: 12px;
 
-    gap:
-        12px;
+  align-items: center;
 }
 
 .pipeline-card {
-    min-height:
-        160px;
+  min-height: 155px;
 
-    padding:
-        22px;
+  padding: 21px;
 
-    display:
-        flex;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
 
-    flex-direction:
-        column;
+  border: 1px solid var(--border);
+  border-radius: 13px;
 
-    justify-content:
-        center;
+  background: var(--surface);
 
-    border:
-        1px solid
-        var(--border);
-
-    border-radius:
-        13px;
-
-    background:
-        var(--surface);
-
-    transition:
-        border-color .25s ease,
-        transform .25s ease,
-        background .25s ease;
+  transition: .25s ease;
 }
 
-.pipeline-card.active {
-    border-color:
-        rgba(88,230,169,.45);
+.pipeline-card:hover {
+  border-color: rgba(89,229,170,.3);
 
-    background:
-        var(--green-soft);
-
-    transform:
-        translateY(-4px);
+  transform: translateY(-3px);
 }
 
-.pipeline-number {
-    margin-bottom:
-        15px;
+.step-number {
+  margin-bottom: 14px;
 
-    color:
-        var(--green);
+  color: var(--green);
 
-    font:
-        12px
-        var(--mono);
+  font: 11px var(--mono);
 }
 
 .pipeline-card strong {
-    font-size:
-        15px;
+  font-size: 15px;
 }
 
 .pipeline-card p {
-    margin:
-        6px 0 0;
+  margin: 6px 0 0;
 
-    color:
-        var(--muted);
+  color: var(--muted);
 
-    font-size:
-        12px;
+  font-size: 12px;
 }
 
-.pipeline-arrow {
-    color:
-        #4c5969;
+.arrow {
+  color: #4d5b6b;
 
-    font-size:
-        22px;
+  font-size: 20px;
 }
 
 
-/* =========================================================
+/* ============================================================
    FEATURES
-   ========================================================= */
+============================================================ */
 
 .feature-grid {
-    margin-top:
-        50px;
+  margin-top: 48px;
 
-    display:
-        grid;
+  display: grid;
 
-    grid-template-columns:
-        repeat(3,1fr);
+  grid-template-columns:
+    repeat(3,1fr);
 
-    gap:
-        15px;
+  gap: 14px;
 }
 
 .feature {
-    padding:
-        27px;
+  padding: 26px;
 
-    border:
-        1px solid
-        var(--border);
+  border: 1px solid var(--border);
+  border-radius: 13px;
 
-    border-radius:
-        13px;
+  background: var(--surface);
 
-    background:
-        var(--surface);
-
-    transition:
-        .2s ease;
+  transition: .2s ease;
 }
 
 .feature:hover {
-    transform:
-        translateY(-3px);
+  transform: translateY(-3px);
 
-    border-color:
-        var(--border-light);
+  border-color: var(--border2);
 
-    background:
-        var(--surface-2);
+  background: var(--surface2);
 }
 
 .feature-icon {
-    width:
-        42px;
+  width: 42px;
+  height: 42px;
 
-    height:
-        42px;
+  margin-bottom: 18px;
 
-    margin-bottom:
-        18px;
+  display: grid;
+  place-items: center;
 
-    display:
-        grid;
+  border-radius: 9px;
 
-    place-items:
-        center;
+  background: var(--green-soft);
 
-    border-radius:
-        9px;
+  color: var(--green);
 
-    background:
-        var(--green-soft);
-
-    color:
-        var(--green);
-
-    font:
-        17px
-        var(--mono);
+  font: 13px var(--mono);
+  font-weight: 800;
 }
 
 .feature h3 {
-    margin:
-        0 0 7px;
+  margin: 0 0 7px;
 
-    font-size:
-        16px;
+  font-size: 16px;
 }
 
 .feature p {
-    margin:
-        0;
+  margin: 0;
 
-    color:
-        var(--muted);
+  color: var(--muted);
 
-    font-size:
-        13px;
+  font-size: 13px;
 }
 
 
-/* =========================================================
-   COMMANDS
-   ========================================================= */
+/* ============================================================
+   TERMINAL
+============================================================ */
+
+.terminal {
+  margin-top: 45px;
+
+  overflow: hidden;
+
+  border: 1px solid var(--border);
+  border-radius: 13px;
+
+  background: #070b10;
+}
+
+.terminal-top {
+  height: 44px;
+
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  padding: 0 15px;
+
+  border-bottom: 1px solid var(--border);
+}
+
+.terminal-body {
+  overflow-x: auto;
+
+  padding: 23px;
+
+  color: #bec8d2;
+
+  font: 13px/1.9 var(--mono);
+
+  white-space: pre;
+}
+
+.green {
+  color: var(--green);
+}
+
+.blue {
+  color: var(--blue);
+}
+
+.comment {
+  color: #637181;
+}
+
+
+/* ============================================================
+   COMMAND TABS
+============================================================ */
 
 .command-panel {
-    margin-top:
-        50px;
+  margin-top: 48px;
 
-    overflow:
-        hidden;
+  overflow: hidden;
 
-    border:
-        1px solid
-        var(--border);
+  border: 1px solid var(--border);
+  border-radius: 13px;
 
-    border-radius:
-        14px;
-
-    background:
-        var(--surface);
+  background: var(--surface);
 }
 
 .tabs {
-    display:
-        flex;
+  padding: 9px;
 
-    gap:
-        4px;
+  display: flex;
+  gap: 4px;
 
-    padding:
-        10px;
+  overflow-x: auto;
 
-    border-bottom:
-        1px solid
-        var(--border);
-
-    overflow-x:
-        auto;
+  border-bottom: 1px solid var(--border);
 }
 
 .tab {
-    flex:
-        0 0 auto;
+  flex: 0 0 auto;
 
-    padding:
-        8px 13px;
+  padding: 8px 12px;
 
-    border:
-        0;
+  border: 0;
+  border-radius: 7px;
 
-    border-radius:
-        7px;
+  background: transparent;
 
-    background:
-        transparent;
+  color: var(--muted);
 
-    color:
-        var(--muted);
-
-    cursor:
-        pointer;
-
-    font-size:
-        12px;
-
-    font-weight:
-        650;
+  font-size: 12px;
+  font-weight: 700;
 }
 
 .tab.active {
-    background:
-        var(--surface-3);
+  background: var(--surface3);
 
-    color:
-        white;
+  color: white;
 }
 
-.command-content {
-    position:
-        relative;
+.command-area {
+  position: relative;
 
-    padding:
-        25px;
+  min-height: 92px;
+
+  padding: 25px;
 }
 
-.command-code {
-    margin:
-        0;
+.command {
+  margin: 0;
 
-    padding-right:
-        80px;
+  padding-right: 75px;
 
-    overflow-x:
-        auto;
+  overflow-x: auto;
 
-    color:
-        #c5d0da;
+  color: #c7d1db;
 
-    font:
-        13px/1.8
-        var(--mono);
+  font: 13px/1.8 var(--mono);
 
-    white-space:
-        pre;
+  white-space: pre;
 }
 
-.copy-button {
-    position:
-        absolute;
+.copy {
+  position: absolute;
 
-    top:
-        18px;
+  top: 18px;
+  right: 18px;
 
-    right:
-        18px;
+  padding: 7px 10px;
 
-    padding:
-        7px 10px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
 
-    border:
-        1px solid
-        var(--border);
+  background: var(--surface2);
 
-    border-radius:
-        7px;
+  color: var(--muted);
 
-    background:
-        var(--surface-2);
-
-    color:
-        var(--muted);
-
-    cursor:
-        pointer;
-
-    font-size:
-        11px;
+  font-size: 11px;
 }
 
-.copy-button:hover {
-    color:
-        white;
+.copy:hover {
+  color: white;
 }
 
 
-/* =========================================================
-   MODELS
-   ========================================================= */
+/* ============================================================
+   MODEL CARDS
+============================================================ */
 
-.model-grid {
-    margin-top:
-        50px;
+.models {
+  margin-top: 48px;
 
-    display:
-        grid;
+  display: grid;
 
-    grid-template-columns:
-        1fr 1fr;
+  grid-template-columns:
+    1fr 1fr;
 
-    gap:
-        16px;
+  gap: 14px;
 }
 
-.model-card {
-    padding:
-        28px;
+.model {
+  padding: 27px;
 
-    border:
-        1px solid
-        var(--border);
+  border: 1px solid var(--border);
+  border-radius: 13px;
 
-    border-radius:
-        14px;
-
-    background:
-        var(--surface);
+  background: var(--surface);
 }
 
-.model-type {
-    color:
-        var(--green);
+.model-label {
+  color: var(--green);
 
-    font:
-        11px
-        var(--mono);
+  font: 10px var(--mono);
 
-    text-transform:
-        uppercase;
+  letter-spacing: .08em;
 
-    letter-spacing:
-        .08em;
+  text-transform: uppercase;
 }
 
 .model-name {
-    margin-top:
-        12px;
+  margin-top: 12px;
 
-    font:
-        15px
-        var(--mono);
+  color: #dce4eb;
 
-    word-break:
-        break-word;
+  font: 14px/1.6 var(--mono);
+
+  word-break: break-word;
 }
 
-.model-card p {
-    margin:
-        15px 0 0;
+.model p {
+  margin: 14px 0 0;
 
-    color:
-        var(--muted);
+  color: var(--muted);
 
-    font-size:
-        13px;
+  font-size: 13px;
 }
 
 
-/* =========================================================
-   DATABASE
-   ========================================================= */
-
-.folder-tree {
-    margin-top:
-        45px;
-
-    padding:
-        25px;
-
-    border:
-        1px solid
-        var(--border);
-
-    border-radius:
-        13px;
-
-    background:
-        #080c11;
-
-    overflow-x:
-        auto;
-
-    color:
-        #bbc6d1;
-
-    font:
-        13px/1.9
-        var(--mono);
-
-    white-space:
-        pre;
-}
-
-
-/* =========================================================
+/* ============================================================
    PRIVACY
-   ========================================================= */
+============================================================ */
 
-.privacy {
-    padding:
-        35px;
+.privacy-box {
+  padding: 34px;
 
-    border:
-        1px solid
-        rgba(88,230,169,.2);
+  border: 1px solid rgba(89,229,170,.2);
+  border-radius: 15px;
 
-    border-radius:
-        16px;
-
-    background:
-        linear-gradient(
-            145deg,
-            rgba(88,230,169,.07),
-            rgba(88,230,169,.02)
-        );
+  background:
+    linear-gradient(
+      145deg,
+      rgba(89,229,170,.065),
+      rgba(89,229,170,.015)
+    );
 }
 
-.privacy h3 {
-    margin:
-        0;
+.privacy-box h3 {
+  margin: 0;
 
-    font-size:
-        24px;
+  font-size: 24px;
 }
 
-.privacy p {
-    max-width:
-        720px;
+.privacy-box p {
+  max-width: 730px;
 
-    margin:
-        12px 0 0;
+  margin: 12px 0 0;
 
-    color:
-        var(--muted);
+  color: var(--muted);
 }
 
 
-/* =========================================================
+/* ============================================================
    CTA
-   ========================================================= */
+============================================================ */
 
 .cta {
-    margin:
-        40px 0 100px;
+  margin: 40px 0 95px;
 
-    padding:
-        70px 30px;
+  padding: 65px 30px;
 
-    text-align:
-        center;
+  border: 1px solid var(--border);
+  border-radius: 18px;
 
-    border:
-        1px solid
-        var(--border);
+  background:
+    radial-gradient(
+      circle at top,
+      rgba(89,229,170,.09),
+      transparent 55%
+    ),
+    var(--surface);
 
-    border-radius:
-        18px;
-
-    background:
-        radial-gradient(
-            circle at top,
-            rgba(88,230,169,.09),
-            transparent 55%
-        ),
-        var(--surface);
+  text-align: center;
 }
 
 .cta h2 {
-    margin:
-        auto;
+  margin: auto;
 }
 
 .cta p {
-    max-width:
-        560px;
+  max-width: 560px;
 
-    margin:
-        17px auto 27px;
+  margin: 17px auto 26px;
 
-    color:
-        var(--muted);
+  color: var(--muted);
 }
 
 
-/* =========================================================
+/* ============================================================
    FOOTER
-   ========================================================= */
+============================================================ */
 
 footer {
-    padding:
-        25px 0 40px;
+  padding: 25px 0 40px;
 
-    border-top:
-        1px solid
-        var(--border);
+  border-top: 1px solid var(--border);
 
-    color:
-        var(--muted-2);
+  color: var(--muted2);
 
-    font-size:
-        12px;
+  font-size: 12px;
 }
 
 .footer-inner {
-    display:
-        flex;
-
-    justify-content:
-        space-between;
-
-    gap:
-        20px;
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
 }
 
 
-/* =========================================================
+/* ============================================================
    RESPONSIVE
-   ========================================================= */
+============================================================ */
 
 @media (max-width: 900px) {
 
-    .nav-links a:not(.github) {
-        display:
-            none;
-    }
+  .pipeline {
+    grid-template-columns: 1fr;
+  }
 
-    .pipeline {
-        grid-template-columns:
-            1fr;
-    }
+  .arrow {
+    text-align: center;
 
-    .pipeline-arrow {
-        text-align:
-            center;
+    transform: rotate(90deg);
+  }
 
-        transform:
-            rotate(90deg);
-    }
+  .feature-grid {
+    grid-template-columns: 1fr 1fr;
+  }
 
-    .feature-grid {
-        grid-template-columns:
-            1fr 1fr;
-    }
+  .photo-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
 }
+
 
 @media (max-width: 650px) {
 
-    .container {
-        width:
-            min(
-                var(--max-width),
-                calc(100% - 24px)
-            );
-    }
+  .container {
+    width: calc(100% - 24px);
+  }
 
-    .hero {
-        padding:
-            80px 0 60px;
-    }
+  .nav-links a:not(.github-button) {
+    display: none;
+  }
 
-    .hero-text {
-        font-size:
-            16px;
-    }
+  .hero {
+    padding-top: 78px;
+  }
 
-    section {
-        padding:
-            75px 0;
-    }
+  .hero-description {
+    font-size: 16px;
+  }
 
-    .comparison,
-    .model-grid,
-    .feature-grid {
-        grid-template-columns:
-            1fr;
-    }
+  section {
+    padding: 72px 0;
+  }
 
-    .terminal-content {
-        padding:
-            18px;
-    }
+  .search-bar {
+    flex-direction: column;
+  }
 
-    .command-code {
-        padding-right:
-            0;
+  .search-button {
+    padding: 13px;
+  }
 
-        padding-top:
-            35px;
-    }
+  .demo-body {
+    padding: 17px;
+  }
 
-    .footer-inner {
-        flex-direction:
-            column;
-    }
+  .demo-info {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .photo-grid,
+  .feature-grid,
+  .models {
+    grid-template-columns: 1fr;
+  }
+
+  .photo-card {
+    aspect-ratio: 16 / 10;
+  }
+
+  .footer-inner {
+    flex-direction: column;
+  }
+
 }
 
 </style>
@@ -1349,1182 +1095,1242 @@ footer {
 <body>
 
 
-<!-- ======================================================
+<!-- ============================================================
      NAVIGATION
-     ====================================================== -->
+============================================================ -->
 
 <nav>
 
-    <div class="container nav-inner">
+  <div class="container nav-inner">
 
-        <a class="logo" href="#">
-            <span class="logo-icon">⌕</span>
-            Local Vector Search
-        </a>
+    <a href="#" class="logo">
+
+      <span class="logo-mark">
+        ⌕
+      </span>
+
+      Local Vector Search
+
+    </a>
 
 
-        <div class="nav-links">
+    <div class="nav-links">
 
-            <a href="#concept">
-                Concept
-            </a>
+      <a href="#how">
+        How it works
+      </a>
 
-            <a href="#architecture">
-                Architecture
-            </a>
+      <a href="#features">
+        Features
+      </a>
 
-            <a href="#setup">
-                Setup
-            </a>
+      <a href="#setup">
+        Setup
+      </a>
 
-            <a href="#models">
-                Models
-            </a>
+      <!-- CHANGE THIS URL -->
 
-            <!-- CHANGE THIS -->
-            <a
-                class="github"
-                href="https://github.com/YOUR_USERNAME/YOUR_REPOSITORY"
-                target="_blank"
-                rel="noopener noreferrer"
-            >
-                GitHub ↗
-            </a>
-
-        </div>
+      <a
+        class="github-button"
+        href="https://github.com/YOUR_USERNAME/YOUR_REPOSITORY"
+        target="_blank"
+        rel="noopener noreferrer"
+      >
+        GitHub ↗
+      </a>
 
     </div>
+
+  </div>
 
 </nav>
 
 
 
-<!-- ======================================================
+<!-- ============================================================
      HERO
-     ====================================================== -->
+============================================================ -->
 
 <header class="hero">
 
-    <div class="container">
+  <div class="container">
 
-        <div class="badge">
+    <div class="badge">
 
-            <span class="badge-dot"></span>
+      <span class="badge-dot"></span>
 
-            Local semantic search with Python
-
-        </div>
-
-
-        <h1>
-
-            Search your files
-
-            <span class="gradient">
-                by meaning.
-            </span>
-
-        </h1>
-
-
-        <p class="hero-text">
-
-            Build a local search engine that lets you search
-            images with natural language, find similar images,
-            and semantically search documents using CLIP,
-            Sentence Transformers and FAISS.
-
-        </p>
-
-
-        <div class="hero-actions">
-
-            <a
-                href="#setup"
-                class="button button-primary"
-            >
-                Build it ↓
-            </a>
-
-            <a
-                href="#architecture"
-                class="button"
-            >
-                How it works
-            </a>
-
-        </div>
-
-
-
-        <!--
-            This is explicitly an example CLI transcript.
-
-            It is NOT presented as a live search box.
-            The numbers are labelled as illustrative output.
-        -->
-
-        <div class="hero-terminal">
-
-            <div class="terminal">
-
-                <div class="terminal-bar">
-
-                    <div class="terminal-dots">
-                        <span class="terminal-dot"></span>
-                        <span class="terminal-dot"></span>
-                        <span class="terminal-dot"></span>
-                    </div>
-
-                    <div class="terminal-title">
-                        example terminal output
-                    </div>
-
-                </div>
-
-
-                <div class="terminal-content">
-
-                    <div>
-                        <span class="prompt">$</span>
-                        python local_search.py search-images
-                        <span class="argument">
-                            "dog playing in snow"
-                        </span>
-                    </div>
-
-                    <br>
-
-                    <div class="output">
-                        Image results for:
-                        "dog playing in snow"
-                    </div>
-
-                    <div class="output">
-                        ──────────────────────────────────────────────
-                    </div>
-
-                    <div>
-                        1.
-                        similarity=<span class="score">0.8421</span>
-                        ~/Pictures/IMG_4837.jpg
-                    </div>
-
-                    <div>
-                        2.
-                        similarity=<span class="score">0.7914</span>
-                        ~/Pictures/DSC_1021.jpg
-                    </div>
-
-                    <div>
-                        3.
-                        similarity=<span class="score">0.7332</span>
-                        ~/Pictures/winter.png
-                    </div>
-
-                    <br>
-
-                    <div class="output">
-                        Example format — actual scores and files
-                        depend on your own index.
-                    </div>
-
-                </div>
-
-            </div>
-
-        </div>
+      CLIP + FAISS + Python
 
     </div>
+
+
+    <h1>
+
+      Search your computer
+
+      <span class="gradient">
+        by meaning.
+      </span>
+
+    </h1>
+
+
+    <p class="hero-description">
+
+      Build a private semantic search engine that lets you
+      find images with natural language, discover similar
+      photos and search documents by meaning instead of
+      filenames.
+
+    </p>
+
+
+    <div class="hero-buttons">
+
+      <a
+        href="#setup"
+        class="button button-primary"
+      >
+        Build it ↓
+      </a>
+
+      <a
+        href="#how"
+        class="button"
+      >
+        How it works
+      </a>
+
+    </div>
+
+
+
+    <!-- ========================================================
+         REAL IMAGE EXAMPLE
+    ========================================================= -->
+
+    <div class="demo-shell">
+
+      <div class="demo-window">
+
+        <div class="window-bar">
+
+          <div class="dots">
+            <span class="dot"></span>
+            <span class="dot"></span>
+            <span class="dot"></span>
+          </div>
+
+          <div class="window-title">
+            semantic image search — example
+          </div>
+
+        </div>
+
+
+        <div class="demo-body">
+
+          <div class="search-bar">
+
+            <input
+              id="demoSearch"
+              class="search-input"
+              value="dog playing in snow"
+              aria-label="Example semantic search query"
+            >
+
+            <button
+              id="demoSearchButton"
+              class="search-button"
+            >
+              Search
+            </button>
+
+          </div>
+
+
+          <div class="demo-info">
+
+            <span id="demoStatus">
+              Example results for "dog playing in snow"
+            </span>
+
+            <span class="example-badge">
+              Visual example
+            </span>
+
+          </div>
+
+
+
+          <div
+            class="photo-grid"
+            id="photoGrid"
+          >
+
+
+            <!-- REAL UNSPLASH PHOTO -->
+
+            <article
+              class="photo-card"
+              data-tags="dog playing snow winter frisbee white"
+            >
+
+              <img
+                src="https://images.unsplash.com/photo-1558430100-fa153c59d51a?auto=format&fit=crop&w=900&q=85"
+                alt="White dog playing with a toy in deep snow"
+                loading="eager"
+              >
+
+              <div class="photo-overlay">
+
+                <div class="photo-name">
+                  dog-playing-in-snow.jpg
+                </div>
+
+                <div class="photo-source">
+                  Real photo · Unsplash
+                </div>
+
+              </div>
+
+            </article>
+
+
+
+            <!-- REAL PHOTO -->
+
+            <article
+              class="photo-card"
+              data-tags="dog playing snow winter golden retriever running"
+            >
+
+              <img
+                src="https://hips.hearstapps.com/hmg-prod/images/golden-retriever-dog-running-on-fresh-snow-royalty-free-image-152643506-1549012155.jpg"
+                alt="Golden retriever running through deep snow"
+                loading="eager"
+              >
+
+              <div class="photo-overlay">
+
+                <div class="photo-name">
+                  retriever-snow.jpg
+                </div>
+
+                <div class="photo-source">
+                  Real photograph
+                </div>
+
+              </div>
+
+            </article>
+
+
+
+            <!-- REAL PHOTO -->
+
+            <article
+              class="photo-card"
+              data-tags="dog playing snow winter golden retriever outdoors"
+            >
+
+              <img
+                src="https://tractive.com/blog/wp-content/uploads/2017/01/header_image_winter_activity-1-1.jpg"
+                alt="Golden retriever playing outside in fresh snow"
+                loading="eager"
+              >
+
+              <div class="photo-overlay">
+
+                <div class="photo-name">
+                  winter-dog.jpg
+                </div>
+
+                <div class="photo-source">
+                  Real photograph
+                </div>
+
+              </div>
+
+            </article>
+
+
+
+            <!-- REAL PHOTO -->
+
+            <article
+              class="photo-card"
+              data-tags="dog snow winter border collie playing ball"
+            >
+
+              <img
+                src="https://www.mitti.se/image-3.312181.274140.20250109085407.4e8285f8f9"
+                alt="Border collie running through snow with a ball"
+                loading="eager"
+              >
+
+              <div class="photo-overlay">
+
+                <div class="photo-name">
+                  collie-winter.jpg
+                </div>
+
+                <div class="photo-source">
+                  Real photograph
+                </div>
+
+              </div>
+
+            </article>
+
+          </div>
+
+
+          <p class="demo-note">
+
+            <strong>What you're seeing:</strong>
+
+            these are real photographs used to demonstrate what
+            text-to-image search looks like. The website is not
+            pretending to run CLIP in JavaScript. Your actual
+            results and similarity scores come from
+            <code>local_search.py</code> and your own FAISS index.
+
+          </p>
+
+        </div>
+
+      </div>
+
+    </div>
+
+  </div>
 
 </header>
 
 
 
-<!-- ======================================================
-     CONCEPT
-     ====================================================== -->
+<!-- ============================================================
+     HOW IT WORKS
+============================================================ -->
 
-<section id="concept">
+<section id="how">
 
-    <div class="container">
+  <div class="container">
 
-        <div class="section-eyebrow">
-            The idea
+    <div class="eyebrow">
+      How it works
+    </div>
+
+
+    <h2>
+      Turn files into vectors.
+      Search the vectors.
+    </h2>
+
+
+    <p class="section-copy">
+
+      Instead of relying on filenames, the Python application
+      represents your images and documents as numerical
+      embeddings. Similar meanings end up closer together in
+      vector space.
+
+    </p>
+
+
+
+    <div class="pipeline">
+
+
+      <div class="pipeline-card">
+
+        <div class="step-number">
+          01
         </div>
 
-        <h2>
-            Stop trying to remember filenames.
-        </h2>
+        <strong>
+          Your files
+        </strong>
 
-        <p class="section-description">
-
-            Normal file search is great when you know a filename
-            or exact keyword. Semantic search solves a different
-            problem: finding something based on what it means.
-
+        <p>
+          Images and documents stored on your computer.
         </p>
 
-
-        <div class="comparison">
-
-            <div class="comparison-card">
-
-                <div class="comparison-label">
-                    Traditional search
-                </div>
-
-                <div class="search-example">
-                    IMG_4837
-                </div>
-
-                <div class="example-result">
-                    You need to know something about the
-                    filename first.
-                </div>
-
-            </div>
+      </div>
 
 
-            <div class="comparison-card highlight">
+      <div class="arrow">
+        →
+      </div>
 
-                <div class="comparison-label">
-                    Semantic search
-                </div>
 
-                <div class="search-example">
-                    dog playing in snow
-                </div>
+      <div class="pipeline-card">
 
-                <div class="example-result">
-                    CLIP compares the meaning of your text query
-                    with the visual content represented by the
-                    indexed image embeddings.
-                </div>
-
-            </div>
-
+        <div class="step-number">
+          02
         </div>
 
+        <strong>
+          Embeddings
+        </strong>
+
+        <p>
+          CLIP or Sentence Transformers converts content to vectors.
+        </p>
+
+      </div>
+
+
+      <div class="arrow">
+        →
+      </div>
+
+
+      <div class="pipeline-card">
+
+        <div class="step-number">
+          03
+        </div>
+
+        <strong>
+          FAISS
+        </strong>
+
+        <p>
+          The vectors are stored in a searchable local index.
+        </p>
+
+      </div>
+
+
+      <div class="arrow">
+        →
+      </div>
+
+
+      <div class="pipeline-card">
+
+        <div class="step-number">
+          04
+        </div>
+
+        <strong>
+          Results
+        </strong>
+
+        <p>
+          FAISS returns vectors closest to your query vector.
+        </p>
+
+      </div>
+
+
     </div>
+
+  </div>
 
 </section>
 
 
 
-<!-- ======================================================
-     ARCHITECTURE
-     ====================================================== -->
-
-<section id="architecture">
-
-    <div class="container">
-
-        <div class="section-eyebrow">
-            Architecture
-        </div>
-
-        <h2>
-            From files to searchable vectors.
-        </h2>
-
-        <p class="section-description">
-
-            Indexing and searching use the same embedding space.
-            FAISS stores those vectors and retrieves the nearest
-            matches to a query vector.
-
-        </p>
-
-
-        <div class="pipeline" id="pipeline">
-
-            <div class="pipeline-card">
-
-                <div class="pipeline-number">
-                    01
-                </div>
-
-                <strong>
-                    Files
-                </strong>
-
-                <p>
-                    Images or text documents on your computer.
-                </p>
-
-            </div>
-
-
-            <div class="pipeline-arrow">
-                →
-            </div>
-
-
-            <div class="pipeline-card">
-
-                <div class="pipeline-number">
-                    02
-                </div>
-
-                <strong>
-                    Embeddings
-                </strong>
-
-                <p>
-                    The model converts content into numerical vectors.
-                </p>
-
-            </div>
-
-
-            <div class="pipeline-arrow">
-                →
-            </div>
-
-
-            <div class="pipeline-card">
-
-                <div class="pipeline-number">
-                    03
-                </div>
-
-                <strong>
-                    FAISS
-                </strong>
-
-                <p>
-                    The normalized vectors are stored in a search index.
-                </p>
-
-            </div>
-
-
-            <div class="pipeline-arrow">
-                →
-            </div>
-
-
-            <div class="pipeline-card">
-
-                <div class="pipeline-number">
-                    04
-                </div>
-
-                <strong>
-                    Nearest matches
-                </strong>
-
-                <p>
-                    Search returns the vectors closest to your query.
-                </p>
-
-            </div>
-
-        </div>
-
-    </div>
-
-</section>
-
-
-
-<!-- ======================================================
+<!-- ============================================================
      FEATURES
-     ====================================================== -->
+============================================================ -->
+
+<section id="features">
+
+  <div class="container">
+
+    <div class="eyebrow">
+      Search modes
+    </div>
+
+
+    <h2>
+      Images, similar images and documents.
+    </h2>
+
+
+    <div class="feature-grid">
+
+
+      <article class="feature">
+
+        <div class="feature-icon">
+          T→I
+        </div>
+
+        <h3>
+          Text → Image
+        </h3>
+
+        <p>
+          Search photos with descriptions like
+          "dog playing in snow" even when the words never
+          appear in the filename.
+        </p>
+
+      </article>
+
+
+
+      <article class="feature">
+
+        <div class="feature-icon">
+          I→I
+        </div>
+
+        <h3>
+          Image → Image
+        </h3>
+
+        <p>
+          Give CLIP another image and retrieve visually or
+          semantically related images from your index.
+        </p>
+
+      </article>
+
+
+
+      <article class="feature">
+
+        <div class="feature-icon">
+          T→T
+        </div>
+
+        <h3>
+          Text → Text
+        </h3>
+
+        <p>
+          Search notes and documents based on their meaning
+          rather than requiring exact keyword matches.
+        </p>
+
+      </article>
+
+
+
+      <article class="feature">
+
+        <div class="feature-icon">
+          DB
+        </div>
+
+        <h3>
+          FAISS index
+        </h3>
+
+        <p>
+          Store normalized embeddings and perform efficient
+          nearest-neighbor vector searches locally.
+        </p>
+
+      </article>
+
+
+
+      <article class="feature">
+
+        <div class="feature-icon">
+          ↳
+        </div>
+
+        <h3>
+          Recursive indexing
+        </h3>
+
+        <p>
+          Point the script at a directory and recursively
+          discover supported images or documents.
+        </p>
+
+      </article>
+
+
+
+      <article class="feature">
+
+        <div class="feature-icon">
+          PC
+        </div>
+
+        <h3>
+          Local first
+        </h3>
+
+        <p>
+          Your FAISS database and file metadata remain on
+          your own machine.
+        </p>
+
+      </article>
+
+
+    </div>
+
+  </div>
+
+</section>
+
+
+
+<!-- ============================================================
+     REAL CLI EXPLANATION
+============================================================ -->
 
 <section>
 
-    <div class="container">
+  <div class="container">
 
-        <div class="section-eyebrow">
-            What it does
+    <div class="eyebrow">
+      The actual search
+    </div>
+
+
+    <h2>
+      This is where CLIP really runs.
+    </h2>
+
+
+    <p class="section-copy">
+
+      The browser page explains the project. The actual semantic
+      search happens in Python. The query is embedded with CLIP
+      and passed to FAISS.
+
+    </p>
+
+
+
+    <div class="terminal">
+
+      <div class="terminal-top">
+
+        <div class="dots">
+          <span class="dot"></span>
+          <span class="dot"></span>
+          <span class="dot"></span>
         </div>
 
-        <h2>
-            Three kinds of semantic search.
-        </h2>
-
-
-        <div class="feature-grid">
-
-            <article class="feature">
-
-                <div class="feature-icon">
-                    T→I
-                </div>
-
-                <h3>
-                    Text to image
-                </h3>
-
-                <p>
-                    Type a natural-language description and
-                    retrieve images whose CLIP embeddings are
-                    closest to the query.
-                </p>
-
-            </article>
-
-
-            <article class="feature">
-
-                <div class="feature-icon">
-                    I→I
-                </div>
-
-                <h3>
-                    Image to image
-                </h3>
-
-                <p>
-                    Embed an image and use its vector to retrieve
-                    similar images from the same FAISS index.
-                </p>
-
-            </article>
-
-
-            <article class="feature">
-
-                <div class="feature-icon">
-                    T→T
-                </div>
-
-                <h3>
-                    Text to text
-                </h3>
-
-                <p>
-                    Split documents into chunks, embed them,
-                    and search for passages related to your query.
-                </p>
-
-            </article>
-
-
-            <article class="feature">
-
-                <div class="feature-icon">
-                    DB
-                </div>
-
-                <h3>
-                    Vector index
-                </h3>
-
-                <p>
-                    FAISS handles nearest-neighbor search across
-                    the vectors generated by the embedding models.
-                </p>
-
-            </article>
-
-
-            <article class="feature">
-
-                <div class="feature-icon">
-                    ↳
-                </div>
-
-                <h3>
-                    Recursive indexing
-                </h3>
-
-                <p>
-                    Point the Python program at a directory and
-                    it recursively discovers supported files.
-                </p>
-
-            </article>
-
-
-            <article class="feature">
-
-                <div class="feature-icon">
-                    PC
-                </div>
-
-                <h3>
-                    Local index
-                </h3>
-
-                <p>
-                    The generated FAISS indexes and metadata
-                    files are stored on your own machine.
-                </p>
-
-            </article>
-
+        <div class="window-title">
+          terminal
         </div>
+
+      </div>
+
+
+      <div class="terminal-body"><span class="green">$</span> python local_search.py search-images <span class="blue">"dog playing in snow"</span>
+
+<span class="comment"># 1. CLIP converts the text into an embedding</span>
+query_vector = model.encode(query)
+
+<span class="comment"># 2. Normalize the query vector</span>
+query_vector = normalize(query_vector)
+
+<span class="comment"># 3. FAISS searches for nearest image embeddings</span>
+scores, ids = index.search(query_vector, limit)
+
+<span class="comment"># 4. The matching paths from YOUR library are returned</span></div>
 
     </div>
+
+  </div>
 
 </section>
 
 
 
-<!-- ======================================================
+<!-- ============================================================
      SETUP
-     ====================================================== -->
+============================================================ -->
 
 <section id="setup">
 
-    <div class="container">
+  <div class="container">
 
-        <div class="section-eyebrow">
-            Run it
-        </div>
-
-        <h2>
-            The commands you actually need.
-        </h2>
-
-        <p class="section-description">
-
-            Select a command below and copy it directly.
-            These correspond to the commands implemented by
-            local_search.py.
-
-        </p>
+    <div class="eyebrow">
+      Get started
+    </div>
 
 
-        <div class="command-panel">
-
-            <div class="tabs">
-
-                <button
-                    class="tab active"
-                    data-command="install"
-                >
-                    Install
-                </button>
-
-                <button
-                    class="tab"
-                    data-command="indexImages"
-                >
-                    Index images
-                </button>
-
-                <button
-                    class="tab"
-                    data-command="searchImages"
-                >
-                    Search images
-                </button>
-
-                <button
-                    class="tab"
-                    data-command="similarImage"
-                >
-                    Similar image
-                </button>
-
-                <button
-                    class="tab"
-                    data-command="indexText"
-                >
-                    Index text
-                </button>
-
-                <button
-                    class="tab"
-                    data-command="searchText"
-                >
-                    Search text
-                </button>
-
-            </div>
+    <h2>
+      Run it on your own computer.
+    </h2>
 
 
-            <div class="command-content">
+    <p class="section-copy">
 
-                <button
-                    class="copy-button"
-                    id="copyButton"
-                >
-                    Copy
-                </button>
+      These buttons contain the actual commands used by the
+      Python CLI from the project.
 
-                <pre
-                    class="command-code"
-                    id="commandCode"
-                ></pre>
+    </p>
 
-            </div>
 
-        </div>
+
+    <div class="command-panel">
+
+      <div class="tabs">
+
+        <button
+          class="tab active"
+          data-command="install"
+        >
+          Install
+        </button>
+
+        <button
+          class="tab"
+          data-command="indexImages"
+        >
+          Index images
+        </button>
+
+        <button
+          class="tab"
+          data-command="searchImages"
+        >
+          Search images
+        </button>
+
+        <button
+          class="tab"
+          data-command="similarImage"
+        >
+          Similar image
+        </button>
+
+        <button
+          class="tab"
+          data-command="indexText"
+        >
+          Index text
+        </button>
+
+        <button
+          class="tab"
+          data-command="searchText"
+        >
+          Search text
+        </button>
+
+      </div>
+
+
+      <div class="command-area">
+
+        <button
+          id="copyButton"
+          class="copy"
+        >
+          Copy
+        </button>
+
+        <pre
+          id="command"
+          class="command"
+        ></pre>
+
+      </div>
 
     </div>
+
+  </div>
 
 </section>
 
 
 
-<!-- ======================================================
+<!-- ============================================================
      MODELS
-     ====================================================== -->
-
-<section id="models">
-
-    <div class="container">
-
-        <div class="section-eyebrow">
-            Embedding models
-        </div>
-
-        <h2>
-            Different models for different data.
-        </h2>
-
-
-        <div class="model-grid">
-
-            <div class="model-card">
-
-                <div class="model-type">
-                    Image + text
-                </div>
-
-                <div class="model-name">
-                    sentence-transformers/clip-ViT-B-32
-                </div>
-
-                <p>
-                    Used for the image index. CLIP can represent
-                    both images and text in a compatible embedding
-                    space, which enables text-to-image and
-                    image-to-image retrieval.
-                </p>
-
-            </div>
-
-
-            <div class="model-card">
-
-                <div class="model-type">
-                    Text
-                </div>
-
-                <div class="model-name">
-                    sentence-transformers/all-MiniLM-L6-v2
-                </div>
-
-                <p>
-                    Used for document search. Text chunks and
-                    queries are embedded into the same vector
-                    space and compared for semantic similarity.
-                </p>
-
-            </div>
-
-        </div>
-
-    </div>
-
-</section>
-
-
-
-<!-- ======================================================
-     VECTOR SEARCH
-     ====================================================== -->
+============================================================ -->
 
 <section>
 
-    <div class="container">
+  <div class="container">
 
-        <div class="section-eyebrow">
-            Vector similarity
+    <div class="eyebrow">
+      Models
+    </div>
+
+
+    <h2>
+      Two embedding models.
+    </h2>
+
+
+    <div class="models">
+
+
+      <div class="model">
+
+        <div class="model-label">
+          Image + text
         </div>
 
-        <h2>
-            Why IndexFlatIP?
-        </h2>
+        <div class="model-name">
+          sentence-transformers/clip-ViT-B-32
+        </div>
 
-        <p class="section-description">
-
-            Before vectors are stored or searched, the Python
-            implementation L2-normalizes them. With normalized
-            vectors, inner-product ranking corresponds to cosine
-            similarity ranking.
-
+        <p>
+          Used for images. CLIP places images and text in a
+          compatible embedding space, enabling both text-to-image
+          and image-to-image retrieval.
         </p>
 
-
-        <div class="terminal" style="margin-top:45px">
-
-            <div class="terminal-bar">
-
-                <div class="terminal-dots">
-                    <span class="terminal-dot"></span>
-                    <span class="terminal-dot"></span>
-                    <span class="terminal-dot"></span>
-                </div>
-
-                <div class="terminal-title">
-                    Python
-                </div>
-
-            </div>
+      </div>
 
 
-            <div class="terminal-content">
 
-                <div>
-                    <span class="output">
-                        # Normalize the vectors
-                    </span>
-                </div>
+      <div class="model">
 
-                <div>
-                    faiss.normalize_L2(embeddings)
-                </div>
-
-                <br>
-
-                <div>
-                    <span class="output">
-                        # Exact inner-product index
-                    </span>
-                </div>
-
-                <div>
-                    index = faiss.IndexFlatIP(dimension)
-                </div>
-
-                <div>
-                    index.add(embeddings)
-                </div>
-
-                <br>
-
-                <div>
-                    <span class="output">
-                        # Retrieve nearest vectors
-                    </span>
-                </div>
-
-                <div>
-                    scores, ids = index.search(query_vector, limit)
-                </div>
-
-            </div>
-
+        <div class="model-label">
+          Text
         </div>
 
+        <div class="model-name">
+          sentence-transformers/all-MiniLM-L6-v2
+        </div>
+
+        <p>
+          Used for document chunks. Queries and document text
+          are embedded into the same semantic vector space.
+        </p>
+
+      </div>
+
+
     </div>
+
+  </div>
 
 </section>
 
 
 
-<!-- ======================================================
-     FILES
-     ====================================================== -->
+<!-- ============================================================
+     VECTOR DB
+============================================================ -->
 
 <section>
 
-    <div class="container">
+  <div class="container">
 
-        <div class="section-eyebrow">
-            Storage
+    <div class="eyebrow">
+      Vector database
+    </div>
+
+
+    <h2>
+      FAISS stores the embeddings.
+    </h2>
+
+
+    <p class="section-copy">
+
+      The script L2-normalizes vectors and stores them in
+      <code>IndexFlatIP</code>. With normalized vectors,
+      inner-product ranking corresponds to cosine-similarity
+      ranking.
+
+    </p>
+
+
+
+    <div class="terminal">
+
+      <div class="terminal-top">
+
+        <div class="dots">
+          <span class="dot"></span>
+          <span class="dot"></span>
+          <span class="dot"></span>
         </div>
 
-        <h2>
-            What gets created?
-        </h2>
+        <div class="window-title">
+          local_search.py
+        </div>
 
-        <p class="section-description">
-
-            The Python program stores FAISS indexes separately
-            from JSON metadata that maps each vector back to its
-            original file or text chunk.
-
-        </p>
+      </div>
 
 
-        <div class="folder-tree">local-vector-search/
-│
-├── local_search.py
-├── index.html
-│
-└── .local_vector_db/
-    │
-    ├── images.faiss
-    ├── images.json
-    │
-    ├── text.faiss
-    └── text.json</div>
+      <div class="terminal-body"><span class="comment"># Normalize embeddings</span>
+embeddings = normalize(embeddings)
+
+<span class="comment"># Create the FAISS index</span>
+dimension = embeddings.shape[1]
+
+index = faiss.IndexFlatIP(dimension)
+
+<span class="comment"># Store vectors</span>
+index.add(embeddings)
+
+<span class="comment"># Save the database</span>
+faiss.write_index(index, ".local_vector_db/images.faiss")</div>
 
     </div>
+
+  </div>
 
 </section>
 
 
 
-<!-- ======================================================
+<!-- ============================================================
      PRIVACY
-     ====================================================== -->
+============================================================ -->
 
 <section>
 
-    <div class="container">
+  <div class="container">
 
-        <div class="privacy">
+    <div class="privacy-box">
 
-            <div class="section-eyebrow">
-                Local first
-            </div>
+      <div class="eyebrow">
+        Local first
+      </div>
 
-            <h3>
-                Your search index stays on your machine.
-            </h3>
+      <h3>
+        Your indexed files stay on your machine.
+      </h3>
 
-            <p>
-                The Python application reads local files and stores
-                its FAISS indexes and metadata locally. The embedding
-                models must be downloaded before first use, but the
-                normal indexing and search flow does not require
-                uploading your image or document collection to a
-                hosted search database.
-            </p>
+      <p>
 
-        </div>
+        The Python application reads files from your computer
+        and stores the generated FAISS indexes and metadata
+        locally. The embedding models must initially be
+        downloaded, but normal indexing and searching does not
+        require sending your personal image or document
+        collection to a hosted vector database.
+
+      </p>
 
     </div>
+
+  </div>
 
 </section>
 
 
 
-<!-- ======================================================
+<!-- ============================================================
      CTA
-     ====================================================== -->
+============================================================ -->
 
 <div class="container">
 
-    <div class="cta">
+  <div class="cta">
 
-        <div class="section-eyebrow">
-            Source code
-        </div>
-
-        <h2>
-            Build your own semantic file search.
-        </h2>
-
-        <p>
-            The project is intentionally small enough to understand
-            while still demonstrating multimodal embeddings,
-            semantic search and vector indexing.
-        </p>
-
-
-        <!-- CHANGE THIS -->
-
-        <a
-            class="button button-primary"
-            href="https://github.com/YOUR_USERNAME/YOUR_REPOSITORY"
-            target="_blank"
-            rel="noopener noreferrer"
-        >
-            View project on GitHub ↗
-        </a>
-
+    <div class="eyebrow">
+      Build it yourself
     </div>
+
+
+    <h2>
+      Your own semantic search engine.
+    </h2>
+
+
+    <p>
+
+      A small project for learning multimodal embeddings,
+      semantic retrieval and vector databases without hiding
+      everything behind a framework.
+
+    </p>
+
+
+    <!-- CHANGE THIS URL -->
+
+    <a
+      class="button button-primary"
+      href="https://github.com/YOUR_USERNAME/YOUR_REPOSITORY"
+      target="_blank"
+      rel="noopener noreferrer"
+    >
+      View source on GitHub ↗
+    </a>
+
+  </div>
 
 </div>
 
 
 
-<!-- ======================================================
+<!-- ============================================================
      FOOTER
-     ====================================================== -->
+============================================================ -->
 
 <footer>
 
-    <div class="container footer-inner">
+  <div class="container footer-inner">
 
-        <div>
-            Local Vector Search
-        </div>
-
-        <div>
-            Python · CLIP · Sentence Transformers · FAISS
-        </div>
-
+    <div>
+      Local Vector Search
     </div>
+
+    <div>
+      Python · CLIP · Sentence Transformers · FAISS
+    </div>
+
+  </div>
 
 </footer>
 
 
 
-<!-- ======================================================
-     JAVASCRIPT
-     ====================================================== -->
-
 <script>
 
-/*
- * Commands shown by the setup section.
- *
- * These match the CLI from local_search.py.
- */
+/* ============================================================
+   COMMANDS
+============================================================ */
 
 const commands = {
 
-    install:
+  install:
 `pip install sentence-transformers faiss-cpu pillow numpy tqdm`,
 
-    indexImages:
+  indexImages:
 `python local_search.py index-images ~/Pictures`,
 
-    searchImages:
+  searchImages:
 `python local_search.py search-images "dog playing in snow"`,
 
-    similarImage:
+  similarImage:
 `python local_search.py similar-image example.jpg`,
 
-    indexText:
+  indexText:
 `python local_search.py index-text ~/Documents`,
 
-    searchText:
+  searchText:
 `python local_search.py search-text "notes about machine learning"`
 
 };
 
 
-
-/* =========================================================
-   COMMAND TABS
-   ========================================================= */
-
-const tabs =
-    document.querySelectorAll(".tab");
-
-const commandCode =
-    document.getElementById("commandCode");
+const commandElement =
+  document.getElementById("command");
 
 const copyButton =
-    document.getElementById("copyButton");
+  document.getElementById("copyButton");
 
+const tabs =
+  document.querySelectorAll(".tab");
 
 let activeCommand =
-    "install";
+  "install";
 
 
-function displayCommand(name) {
+function renderCommand() {
 
-    activeCommand = name;
-
-    commandCode.textContent =
-        commands[name];
+  commandElement.textContent =
+    commands[activeCommand];
 
 }
 
 
 tabs.forEach(tab => {
 
-    tab.addEventListener(
-        "click",
-        () => {
+  tab.addEventListener("click", () => {
 
-            tabs.forEach(
-                item =>
-                    item.classList.remove(
-                        "active"
-                    )
-            );
-
-            tab.classList.add(
-                "active"
-            );
-
-            displayCommand(
-                tab.dataset.command
-            );
-
-        }
+    tabs.forEach(item =>
+      item.classList.remove("active")
     );
+
+    tab.classList.add("active");
+
+    activeCommand =
+      tab.dataset.command;
+
+    renderCommand();
+
+  });
 
 });
 
 
-displayCommand(activeCommand);
+renderCommand();
 
 
 
-/* =========================================================
-   COPY BUTTON
-   ========================================================= */
+/* ============================================================
+   COPY COMMAND
+============================================================ */
 
-copyButton.addEventListener(
-    "click",
-    async () => {
+copyButton.addEventListener("click", async () => {
 
-        const text =
-            commands[activeCommand];
+  const value =
+    commands[activeCommand];
 
-        try {
+  try {
 
-            await navigator.clipboard.writeText(
-                text
-            );
+    await navigator.clipboard.writeText(value);
 
-            copyButton.textContent =
-                "Copied";
+  } catch {
 
-            setTimeout(
-                () => {
-                    copyButton.textContent =
-                        "Copy";
-                },
-                1500
-            );
+    const textarea =
+      document.createElement("textarea");
 
-        } catch {
+    textarea.value = value;
 
-            /*
-             * Clipboard access can be blocked when the page is
-             * opened directly from file:// in some browsers.
-             *
-             * This fallback still copies the command.
-             */
+    document.body.appendChild(textarea);
 
-            const textarea =
-                document.createElement(
-                    "textarea"
-                );
+    textarea.select();
 
-            textarea.value =
-                text;
+    document.execCommand("copy");
 
-            document.body.appendChild(
-                textarea
-            );
+    textarea.remove();
 
-            textarea.select();
+  }
 
-            document.execCommand(
-                "copy"
-            );
+  copyButton.textContent =
+    "Copied";
 
-            textarea.remove();
+  setTimeout(() => {
 
-            copyButton.textContent =
-                "Copied";
+    copyButton.textContent =
+      "Copy";
 
-            setTimeout(
-                () => {
-                    copyButton.textContent =
-                        "Copy";
-                },
-                1500
-            );
+  }, 1400);
 
-        }
+});
+
+
+
+/* ============================================================
+   DEMO GALLERY SEARCH
+============================================================ */
+
+/*
+  IMPORTANT:
+
+  This search only filters the REAL example photographs
+  displayed on this webpage.
+
+  It does NOT pretend to execute CLIP or FAISS.
+
+  The real vector search is performed by local_search.py.
+*/
+
+const searchInput =
+  document.getElementById("demoSearch");
+
+const searchButton =
+  document.getElementById("demoSearchButton");
+
+const status =
+  document.getElementById("demoStatus");
+
+const cards =
+  [...document.querySelectorAll(".photo-card")];
+
+
+function runGalleryDemo() {
+
+  const query =
+    searchInput.value
+      .trim()
+      .toLowerCase();
+
+  if (!query) {
+
+    cards.forEach(card => {
+      card.style.display = "";
+    });
+
+    status.textContent =
+      "Showing all example photographs";
+
+    return;
+
+  }
+
+
+  const words =
+    query.split(/\s+/);
+
+
+  let visible =
+    0;
+
+
+  cards.forEach(card => {
+
+    const tags =
+      card.dataset.tags.toLowerCase();
+
+    /*
+      A card remains visible when at least one meaningful
+      query word occurs in its descriptive tags.
+    */
+
+    const matches =
+      words.some(word =>
+        word.length > 2 &&
+        tags.includes(word)
+      );
+
+
+    if (matches) {
+
+      card.style.display =
+        "";
+
+      visible++;
+
+    } else {
+
+      card.style.display =
+        "none";
 
     }
+
+  });
+
+
+  if (visible > 0) {
+
+    status.textContent =
+      `Example photographs matching "${query}"`;
+
+  } else {
+
+    /*
+      We do NOT manufacture fake search results.
+
+      If the tiny example gallery has no matching tags,
+      we say so.
+    */
+
+    status.textContent =
+      `No matching photographs in this small website demo. ` +
+      `Your Python CLIP index can search your full library.`;
+
+  }
+
+}
+
+
+searchButton.addEventListener(
+  "click",
+  runGalleryDemo
 );
 
 
+searchInput.addEventListener(
+  "keydown",
+  event => {
 
-/* =========================================================
-   PIPELINE ANIMATION
-   ========================================================= */
+    if (event.key === "Enter") {
 
-/*
- * This animation only highlights the real conceptual
- * stages of the architecture.
- *
- * It does not pretend to perform a vector search.
- */
+      runGalleryDemo();
 
-const pipelineCards =
-    document.querySelectorAll(
-        ".pipeline-card"
-    );
+    }
 
-
-const pipelineObserver =
-    new IntersectionObserver(
-
-        entries => {
-
-            entries.forEach(
-                entry => {
-
-                    if (!entry.isIntersecting) {
-                        return;
-                    }
-
-                    pipelineCards.forEach(
-                        (card, index) => {
-
-                            setTimeout(
-                                () => {
-
-                                    pipelineCards.forEach(
-                                        c =>
-                                            c.classList.remove(
-                                                "active"
-                                            )
-                                    );
-
-                                    card.classList.add(
-                                        "active"
-                                    );
-
-                                },
-                                index * 450
-                            );
-
-                        }
-                    );
-
-                    setTimeout(
-                        () => {
-
-                            pipelineCards.forEach(
-                                c =>
-                                    c.classList.remove(
-                                        "active"
-                                    )
-                            );
-
-                        },
-                        pipelineCards.length * 450 + 500
-                    );
-
-                    pipelineObserver.disconnect();
-
-                }
-            );
-
-        },
-
-        {
-            threshold: 0.4
-        }
-
-    );
-
-
-const pipeline =
-    document.getElementById(
-        "pipeline"
-    );
-
-
-if (pipeline) {
-
-    pipelineObserver.observe(
-        pipeline
-    );
-
-}
+  }
+);
 
 </script>
 
