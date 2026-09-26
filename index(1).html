@@ -1,0 +1,213 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Build a Local Vector Database — CLIP + Qdrant</title>
+<meta name="description" content="Learn vector databases by building local semantic image search with CLIP embeddings and Qdrant.">
+<style>
+:root{--bg:#070b0f;--panel:#0d141b;--panel2:#111b25;--line:#21303d;--text:#f3f7f9;--muted:#8d9aa8;--green:#59e5aa;--blue:#79aaff;--purple:#bd9cff;--soft:rgba(89,229,170,.09);--mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;--max:1160px}
+*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:radial-gradient(circle at 50% -5%,rgba(89,229,170,.10),transparent 28%),var(--bg);color:var(--text);font-family:Inter,system-ui,-apple-system,Segoe UI,sans-serif;line-height:1.6}
+a{color:inherit;text-decoration:none}code,pre{font-family:var(--mono)}button,input{font:inherit}.wrap{width:min(var(--max),calc(100% - 36px));margin:auto}
+nav{position:sticky;top:0;z-index:30;background:rgba(7,11,15,.86);backdrop-filter:blur(18px);border-bottom:1px solid rgba(255,255,255,.06)}.nav{height:66px;display:flex;align-items:center;justify-content:space-between}.brand{display:flex;gap:10px;align-items:center;font-weight:850}.mark{display:grid;place-items:center;width:32px;height:32px;border:1px solid rgba(89,229,170,.3);border-radius:9px;background:var(--soft);color:var(--green);font:800 12px var(--mono)}.links{display:flex;gap:20px;align-items:center;color:var(--muted);font-size:13px}.links a:hover{color:#fff}
+header{padding:96px 0 72px;text-align:center}.badge{display:inline-flex;gap:8px;align-items:center;padding:6px 11px;border:1px solid rgba(89,229,170,.25);border-radius:999px;background:var(--soft);color:var(--green);font-size:12px;font-weight:800}.dot{width:6px;height:6px;border-radius:50%;background:var(--green);box-shadow:0 0 12px var(--green)}
+h1{font-size:clamp(50px,7vw,82px);line-height:.98;letter-spacing:-.055em;margin:22px auto 0;max-width:980px}.grad{background:linear-gradient(90deg,var(--green),#b8f7df,var(--blue));color:transparent;background-clip:text;-webkit-background-clip:text}.lead{max-width:760px;margin:25px auto 0;color:var(--muted);font-size:18px}.actions{display:flex;justify-content:center;gap:10px;flex-wrap:wrap;margin-top:30px}.btn{border:1px solid var(--line);border-radius:9px;padding:10px 16px;background:var(--panel);color:#fff;font-weight:780;cursor:pointer}.primary{background:var(--green);border-color:var(--green);color:#06110c}
+section{padding:88px 0}.eyebrow{color:var(--green);font-size:11px;font-weight:900;letter-spacing:.13em;text-transform:uppercase;margin-bottom:9px}h2{font-size:clamp(34px,5vw,52px);line-height:1.06;letter-spacing:-.04em;margin:0;max-width:900px}h3{margin:0}.desc{max-width:780px;color:var(--muted);font-size:16px;margin:16px 0 0}
+.demo{max-width:1030px;margin:62px auto 0;padding:13px;border:1px solid rgba(89,229,170,.18);border-radius:18px;background:linear-gradient(145deg,rgba(89,229,170,.07),rgba(121,170,255,.025));text-align:left}.window{overflow:hidden;border:1px solid var(--line);border-radius:12px;background:#080d12}.bar{height:44px;padding:0 14px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--line);color:#657382;font:11px var(--mono)}.inside{padding:24px}.search{display:flex;gap:9px}.search input{flex:1;min-width:0;padding:13px 15px;border:1px solid var(--line);border-radius:9px;background:#060a0e;color:#fff;outline:0}.search input:focus{border-color:var(--green);box-shadow:0 0 0 3px var(--soft)}.search button{border:0;border-radius:9px;padding:0 22px;background:var(--green);font-weight:850;color:#06110c;cursor:pointer}.chips{display:flex;gap:6px;flex-wrap:wrap;margin:13px 0}.chip{padding:5px 9px;border:1px solid var(--line);border-radius:999px;background:transparent;color:#7e8c9a;font-size:10px;cursor:pointer}.chip:hover{color:var(--green);border-color:rgba(89,229,170,.35)}.status{display:flex;justify-content:space-between;color:var(--muted);font-size:11px;margin-bottom:12px}.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}.photo{position:relative;overflow:hidden;aspect-ratio:1/1.05;border:1px solid var(--line);border-radius:10px;background:var(--panel2)}.photo img{width:100%;height:100%;object-fit:cover;display:block}.caption{position:absolute;left:7px;right:7px;bottom:7px;padding:7px 8px;border:1px solid rgba(255,255,255,.08);border-radius:7px;background:rgba(5,9,13,.87);font-size:9px}.caption b{display:block;font-size:10px}.caption span{color:#748391}.match{display:none;position:absolute;right:7px;top:7px;padding:3px 6px;border-radius:999px;background:rgba(6,18,13,.92);border:1px solid rgba(89,229,170,.35);color:var(--green);font-size:9px}.photo.result .match{display:block}.note{margin:13px 0 0;color:#6e7d8c;font-size:11px}.note strong{color:#c3ccd3}
+.core{display:grid;grid-template-columns:1fr auto 1fr;gap:20px;align-items:stretch;margin-top:42px}.corecard{padding:28px;border:1px solid var(--line);border-radius:15px;background:var(--panel)}.corecard .icon{color:var(--green);font:18px var(--mono);margin-bottom:12px}.corecard h3{font-size:24px}.corecard p{color:var(--muted)}.corecard ul{padding-left:18px;color:#b5c0c9}.corearrow{align-self:center;color:var(--green);font-size:28px}
+.lesson{display:grid;grid-template-columns:64px 1fr;gap:24px;margin-top:24px;padding:30px;border:1px solid var(--line);border-radius:15px;background:var(--panel)}.num{display:grid;place-items:center;width:48px;height:48px;border:1px solid rgba(89,229,170,.25);border-radius:11px;background:var(--soft);color:var(--green);font:800 11px var(--mono)}.lesson h3{font-size:22px}.lesson p{max-width:820px;color:var(--muted);margin:8px 0}.flow{display:flex;align-items:center;justify-content:center;gap:14px;margin-top:24px;flex-wrap:wrap}.source{width:145px;overflow:hidden;border:1px solid var(--line);border-radius:10px;background:#070b10}.source img{width:100%;height:100px;object-fit:cover}.source small{display:block;padding:7px;color:var(--muted);font:9px var(--mono)}.arrow{color:var(--green);font-size:22px}.model,.querybox{padding:16px;border:1px solid rgba(89,229,170,.25);border-radius:10px;background:var(--soft);text-align:center;min-width:140px}.model small{display:block;color:var(--green);font:10px var(--mono)}.vector{display:flex;flex-wrap:wrap;gap:5px;max-width:280px}.vector span{padding:6px;border:1px solid var(--line);border-radius:5px;background:#070b10;color:var(--blue);font:10px var(--mono)}.caption2{font-size:11px!important;color:#687786!important;margin-top:18px!important}
+.space{height:380px;position:relative;overflow:hidden;margin-top:24px;border:1px solid var(--line);border-radius:12px;background:linear-gradient(rgba(255,255,255,.025) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.025) 1px,transparent 1px),#080d12;background-size:35px 35px}.space:before{content:"";position:absolute;left:42px;right:25px;bottom:45px;height:1px;background:#344250}.space:after{content:"";position:absolute;left:42px;top:25px;bottom:45px;width:1px;background:#344250}.point{position:absolute;padding:7px 9px;border:1px solid var(--line);border-radius:8px;background:#0d141c;font-size:18px}.point small{margin-left:4px;color:var(--muted)}.dog{border-color:rgba(89,229,170,.4);background:rgba(89,229,170,.08)}.p1{left:19%;top:23%}.p2{left:30%;top:38%}.p3{left:20%;top:53%}.car{right:13%;top:20%}.mount{right:27%;bottom:18%}.beach{left:50%;bottom:13%}
+.record{margin-top:24px;border:1px solid var(--line);border-radius:12px;overflow:hidden;background:#070b10}.recordhead{display:flex;justify-content:space-between;padding:12px 15px;border-bottom:1px solid var(--line);color:var(--green);font:10px var(--mono)}.recordbody{display:grid;grid-template-columns:100px 1fr;gap:0}.rk,.rv{padding:11px 14px;border-bottom:1px solid rgba(255,255,255,.05);font:11px var(--mono)}.rk{color:#71808e;border-right:1px solid rgba(255,255,255,.05)}.rv{color:#dce4e9}.rv.vectorval{color:var(--blue)}
+.compare{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:26px}.compare>div{padding:22px;border:1px solid var(--line);border-radius:12px;background:#090e14}.compare .yes{border-color:rgba(89,229,170,.25)}.compare h3{font-size:18px}.compare p{color:var(--muted);font-size:13px}.compare code{color:var(--blue)}
+.question{margin:22px 0;padding:18px;border-left:3px solid var(--green);background:var(--soft);font-size:18px;font-weight:800}.formula{padding:22px;margin-top:20px;border:1px solid var(--line);border-radius:10px;background:#070b10;text-align:center;font:14px var(--mono)}.formula small{display:block;color:var(--muted);font:10px system-ui;margin-bottom:12px;text-transform:uppercase;letter-spacing:.1em}.scores{margin-top:22px}.score{display:grid;grid-template-columns:170px 1fr 45px;gap:12px;align-items:center;margin:10px 0;color:var(--muted);font:10px var(--mono)}.track{height:8px;border-radius:999px;background:#1a2530;overflow:hidden}.fill{height:100%;background:var(--green);border-radius:inherit}.fill.low{background:#455667}
+.pipeline{margin-top:42px;padding:30px;border:1px solid rgba(89,229,170,.23);border-radius:15px;background:linear-gradient(145deg,rgba(89,229,170,.06),rgba(121,170,255,.02))}.pipe{display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap;margin-top:24px}.box{min-width:125px;padding:15px;border:1px solid var(--line);border-radius:10px;background:#090e14;text-align:center}.box em{display:block;color:var(--green);font:normal 15px var(--mono)}.box small{display:block;color:var(--muted)}.box.hot{border-color:rgba(89,229,170,.42);background:var(--soft)}
+.featuregrid{display:grid;grid-template-columns:repeat(3,1fr);gap:13px;margin-top:38px}.feature{padding:23px;border:1px solid var(--line);border-radius:13px;background:var(--panel)}.feature i{display:inline-grid;place-items:center;min-width:34px;height:30px;padding:0 7px;border-radius:7px;background:var(--soft);color:var(--green);font:normal 10px var(--mono)}.feature h3{margin:12px 0 5px}.feature p{margin:0;color:var(--muted);font-size:13px}
+.terminal{margin-top:30px;border:1px solid var(--line);border-radius:12px;overflow:hidden;background:#060a0e}.termhead{display:flex;justify-content:space-between;padding:11px 14px;border-bottom:1px solid var(--line);color:#71808e;font:10px var(--mono)}pre{margin:0;padding:22px;overflow:auto;color:#dce4e9;font-size:12px;line-height:1.75}.c{color:#667684}.g{color:var(--green)}.b{color:var(--blue)}.p{color:var(--purple)}
+.tabs{display:flex;gap:8px;flex-wrap:wrap;margin-top:26px}.tab{padding:8px 11px;border:1px solid var(--line);border-radius:8px;background:var(--panel);color:var(--muted);cursor:pointer}.tab.active{color:var(--green);border-color:rgba(89,229,170,.35);background:var(--soft)}.tabpane{display:none}.tabpane.active{display:block}
+.callout{margin-top:25px;padding:22px;border:1px solid rgba(89,229,170,.22);border-radius:12px;background:var(--soft)}.callout strong{color:var(--green)}
+footer{padding:55px 0;border-top:1px solid var(--line);color:var(--muted);font-size:12px}.foot{display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap}
+@media(max-width:850px){.links{display:none}.grid{grid-template-columns:repeat(2,1fr)}.core{grid-template-columns:1fr}.corearrow{transform:rotate(90deg);justify-self:center}.lesson{grid-template-columns:1fr}.featuregrid,.compare{grid-template-columns:1fr}.recordbody{grid-template-columns:80px 1fr}.score{grid-template-columns:1fr;gap:5px}.flow{flex-direction:column}.arrow{transform:rotate(90deg)}}@media(max-width:520px){.grid{grid-template-columns:1fr}.search{flex-direction:column}.search button{padding:12px}}
+</style>
+</head>
+<body>
+<nav><div class="wrap nav"><a class="brand" href="#"><span class="mark">VDB</span>Local Vector DB</a><div class="links"><a href="#demo">Demo</a><a href="#what">Vector DB</a><a href="#pipeline">Pipeline</a><a href="#code">Code</a><a href="#setup">Setup</a></div></div></nav>
+
+<header id="demo"><div class="wrap">
+<div class="badge"><span class="dot"></span> CLIP + Qdrant · local semantic search</div>
+<h1>Learn vector databases by <span class="grad">building one into a real project.</span></h1>
+<p class="lead">Index your own images, convert them into embeddings with CLIP, store the vectors and metadata in Qdrant, then search your files by meaning instead of filename.</p>
+<div class="actions"><a class="btn primary" href="#what">How vector databases work ↓</a><a class="btn" href="#setup">Build it locally</a></div>
+
+<div class="demo"><div class="window"><div class="bar"><span>semantic-image-search</span><span>Qdrant collection: images</span></div><div class="inside">
+<div class="search"><input id="q" value="dog playing in snow" aria-label="Demo search"><button id="go">Search</button></div>
+<div class="chips"><button class="chip">dog playing in snow</button><button class="chip">red sports car</button><button class="chip">mountains at sunset</button><button class="chip">city at night</button><button class="chip">cat indoors</button><button class="chip">tropical beach</button><button class="chip" id="all">show all</button></div>
+<div class="status"><span id="status">12 images in demo library</span><span>semantic search UI</span></div>
+<div class="grid" id="gallery">
+<article class="photo" data-tags="dog dogs puppy pet animal playing running snow snowy winter outdoors"><img src="demo-images/dog-snow-01.jpg" alt="Dog in snow"><span class="match">match</span><div class="caption"><b>dog-snow-01.jpg</b><span>dog · snow · outdoors</span></div></article>
+<article class="photo" data-tags="red sports car vehicle automotive road fast supercar"><img src="demo-images/red-sports-car.jpg" alt="Red sports car"><span class="match">match</span><div class="caption"><b>red-sports-car.jpg</b><span>red · sports car</span></div></article>
+<article class="photo" data-tags="mountain mountains sunset landscape orange sky nature evening peaks"><img src="demo-images/mountain-sunset.jpg" alt="Mountain sunset"><span class="match">match</span><div class="caption"><b>mountain-sunset.jpg</b><span>mountains · sunset</span></div></article>
+<article class="photo" data-tags="city night urban street lights buildings downtown architecture evening"><img src="demo-images/city-night.jpg" alt="City at night"><span class="match">match</span><div class="caption"><b>city-night.jpg</b><span>city · night</span></div></article>
+<article class="photo" data-tags="dog dogs puppy pet animal playing running snow snowy winter outdoors"><img src="demo-images/dog-snow-02.jpg" alt="Dog running in snow"><span class="match">match</span><div class="caption"><b>dog-snow-02.jpg</b><span>dog · snow · running</span></div></article>
+<article class="photo" data-tags="tropical beach ocean sea water palm palms sand summer vacation blue"><img src="demo-images/tropical-beach.jpg" alt="Tropical beach"><span class="match">match</span><div class="caption"><b>tropical-beach.jpg</b><span>beach · ocean · tropical</span></div></article>
+<article class="photo" data-tags="cat kitten pet animal indoor indoors house home sofa couch"><img src="demo-images/cat-indoors.jpg" alt="Cat indoors"><span class="match">match</span><div class="caption"><b>cat-indoors.jpg</b><span>cat · indoors · pet</span></div></article>
+<article class="photo" data-tags="green forest woods trees nature landscape outdoors woodland plants"><img src="demo-images/green-forest.jpg" alt="Green forest"><span class="match">match</span><div class="caption"><b>green-forest.jpg</b><span>forest · trees · nature</span></div></article>
+<article class="photo" data-tags="dog snow winter playing running puppy pet animal outdoors"><img src="demo-images/dog-snow-03.jpg" alt="Dog playing in snow"><span class="match">match</span><div class="caption"><b>dog-snow-03.jpg</b><span>dog · snow · playing</span></div></article>
+<article class="photo" data-tags="mountain lake water nature reflection landscape calm blue outdoors"><img src="demo-images/mountain-lake.jpg" alt="Mountain lake"><span class="match">match</span><div class="caption"><b>mountain-lake.jpg</b><span>lake · mountains</span></div></article>
+<article class="photo" data-tags="modern building architecture city glass office structure geometric urban"><img src="demo-images/modern-building.jpg" alt="Modern building"><span class="match">match</span><div class="caption"><b>modern-building.jpg</b><span>building · architecture</span></div></article>
+<article class="photo" data-tags="dog snow winter playing running collie pet animal outdoors"><img src="demo-images/dog-snow-04.jpg" alt="Dog in winter"><span class="match">match</span><div class="caption"><b>dog-snow-04.jpg</b><span>dog · winter · running</span></div></article>
+</div>
+<p class="note"><strong>Website demo:</strong> the gallery uses local descriptive tags so the static HTML can demonstrate the interface. In the actual Python project there are no hand-written tags: CLIP creates the vectors and <strong>Qdrant performs the real vector-database search.</strong></p>
+</div></div></div>
+</div></header>
+
+<section id="what"><div class="wrap">
+<div class="eyebrow">The point of the project</div><h2>What is a vector database?</h2>
+<p class="desc">A normal database is great at exact values: IDs, names, dates, categories. A vector database is designed to store high-dimensional vectors and retrieve the vectors that are mathematically closest to a query. That makes similarity and semantic search possible.</p>
+<div class="core">
+<div class="corecard"><div class="icon">01 · EMBEDDING MODEL</div><h3>CLIP creates meaning as numbers.</h3><p>CLIP converts an image or text query into an embedding: a vector whose position represents learned semantic information.</p><ul><li>Input: image or text</li><li>Output: vector</li><li>Job: representation</li></ul></div>
+<div class="corearrow">→</div>
+<div class="corecard"><div class="icon">02 · VECTOR DATABASE</div><h3>Qdrant stores and searches those numbers.</h3><p>Qdrant stores each vector as a point together with an ID and payload metadata, then retrieves nearest points using a similarity metric.</p><ul><li>Input: vectors + metadata</li><li>Output: nearest matching points</li><li>Job: storage + retrieval</li></ul></div>
+</div>
+<div class="callout"><strong>One sentence for the whole video:</strong> CLIP turns meaning into vectors. Qdrant is the vector database that stores those vectors and finds the closest ones.</div>
+</div></section>
+
+<section><div class="wrap"><div class="eyebrow">Step 1 · embeddings</div><h2>Before a vector database can search anything, we need vectors.</h2>
+<div class="lesson"><div class="num">01</div><div><h3>CLIP converts the image into an embedding</h3><p>The database does not understand pixels directly. We first run the image through CLIP's image encoder. The result is a fixed-length list of floating-point numbers.</p><div class="flow"><div class="source"><img src="demo-images/dog-snow-01.jpg" alt="Dog in snow"><small>dog-snow-01.jpg</small></div><span class="arrow">→</span><div class="model"><small>CLIP</small><b>Image encoder</b></div><span class="arrow">→</span><div class="vector"><span>0.021</span><span>-0.184</span><span>0.734</span><span>0.091</span><span>-0.441</span><span>…</span></div></div><p class="caption2">The displayed values are illustrative. The real model produces a high-dimensional embedding.</p></div></div>
+<div class="lesson"><div class="num">02</div><div><h3>Similar meaning becomes nearby geometry</h3><p>Individual dimensions are not labels like “dog” or “snow.” Meaning is distributed across the whole vector. What matters for search is how vectors relate to one another.</p><div class="space"><div class="point dog p1">🐕 <small>dog in snow</small></div><div class="point dog p2">🐕 <small>winter dog</small></div><div class="point dog p3">🐕 <small>dog running</small></div><div class="point car">🏎 <small>sports car</small></div><div class="point mount">⛰ <small>mountains</small></div><div class="point beach">🌴 <small>beach</small></div></div><p class="caption2">This is a conceptual 2D projection. Real embedding spaces have many dimensions.</p></div></div>
+</div></section>
+
+<section id="database"><div class="wrap"><div class="eyebrow">Step 2 · the actual vector database</div><h2>Qdrant stores more than “just an array.”</h2><p class="desc">In Qdrant, a stored item is a <strong>point</strong>. A point can contain an ID, a vector, and a payload. The payload is ordinary metadata that lets your application map the numerical vector back to the real file and filter results later.</p>
+<div class="record"><div class="recordhead"><span>QDRANT POINT</span><span>collection: images</span></div><div class="recordbody">
+<div class="rk">id</div><div class="rv">"8c84...e91"</div>
+<div class="rk">vector</div><div class="rv vectorval">[0.021, -0.184, 0.734, 0.091, ...]</div>
+<div class="rk">payload</div><div class="rv">{ "path": "/photos/dog-snow-01.jpg", "filename": "dog-snow-01.jpg", "type": "image" }</div>
+</div></div>
+<div class="compare"><div><h3>Plain vector index</h3><p>A similarity-search index focuses primarily on nearest-neighbor lookup. You often maintain metadata and persistence separately.</p><code>vector → nearest IDs</code></div><div class="yes"><h3>Vector database</h3><p>Qdrant manages collections of points containing vectors and payload, persists them, supports updates/deletes, filtering and vector queries through a database API.</p><code>ID + vector + payload → query</code></div></div>
+</div></section>
+
+<section><div class="wrap"><div class="eyebrow">Step 3 · collections</div><h2>A collection defines how your vectors are stored and compared.</h2><p class="desc">For the image collection, we create a Qdrant collection whose vector size matches the CLIP embedding dimension and choose cosine distance for similarity.</p>
+<div class="terminal"><div class="termhead"><span>create_collection.py</span><span>Qdrant schema</span></div><pre><span class="b">from</span> qdrant_client <span class="b">import</span> QdrantClient, models
+
+client = QdrantClient(path=<span class="g">"./qdrant_data"</span>)
+
+client.create_collection(
+    collection_name=<span class="g">"images"</span>,
+    vectors_config=models.VectorParams(
+        size=embedding_dimension,
+        distance=models.Distance.COSINE,
+    ),
+)</pre></div>
+<p class="caption2">For a tutorial, Qdrant's Python client can run with local on-disk storage. You can later switch to a Qdrant server without changing the core vector-search concept.</p>
+</div></section>
+
+<section><div class="wrap"><div class="eyebrow">Step 4 · inserting points</div><h2>Indexing means: embed the file, then upsert the vector into Qdrant.</h2>
+<div class="terminal"><div class="termhead"><span>index image</span><span>CLIP → Qdrant</span></div><pre><span class="c"># Turn image pixels into a vector</span>
+embedding = clip_model.encode(image).tolist()
+
+<span class="c"># Store the vector AND useful metadata in the vector database</span>
+client.upsert(
+    collection_name=<span class="g">"images"</span>,
+    points=[
+        models.PointStruct(
+            id=point_id,
+            vector=embedding,
+            payload={
+                <span class="g">"path"</span>: str(image_path),
+                <span class="g">"filename"</span>: image_path.name,
+                <span class="g">"type"</span>: <span class="g">"image"</span>,
+            },
+        )
+    ],
+)</pre></div>
+<div class="callout"><strong>This is the database moment:</strong> the embedding is no longer just a Python list. It becomes a persistent database point associated with metadata about the file it represents.</div>
+</div></section>
+
+<section id="pipeline"><div class="wrap"><div class="eyebrow">Step 5 · querying</div><h2>The query goes through the same embedding space.</h2>
+<div class="lesson"><div class="num">03</div><div><h3>Text becomes a query vector</h3><p>CLIP was trained so its text and image representations can be compared. The text query is encoded into the same shared embedding space as the indexed images.</p><div class="flow"><div class="querybox">"dog playing in snow"</div><span class="arrow">→</span><div class="model"><small>CLIP</small><b>Text encoder</b></div><span class="arrow">→</span><div class="vector"><span>0.039</span><span>-0.201</span><span>0.701</span><span>0.117</span><span>…</span></div></div></div></div>
+<div class="lesson"><div class="num">04</div><div><h3>Qdrant performs nearest-neighbor search</h3><div class="question">Which points in the <code>images</code> collection have vectors most similar to this query vector?</div><div class="terminal"><div class="termhead"><span>query</span><span>nearest points</span></div><pre>results = client.query_points(
+    collection_name=<span class="g">"images"</span>,
+    query=query_embedding.tolist(),
+    limit=5,
+).points
+
+<span class="b">for</span> point <span class="b">in</span> results:
+    print(point.score, point.payload[<span class="g">"path"</span>])</pre></div></div></div>
+<div class="lesson"><div class="num">05</div><div><h3>Similarity determines the ranking</h3><p>With cosine distance configured for the collection, Qdrant ranks points according to vector similarity. Conceptually, vectors pointing in similar directions receive stronger similarity.</p><div class="formula"><small>Cosine similarity</small>similarity(A, B) = (A · B) / (‖A‖ ‖B‖)</div><div class="scores"><div class="score"><span>dog-snow-01.jpg</span><div class="track"><div class="fill" style="width:92%"></div></div><span>high</span></div><div class="score"><span>dog-snow-02.jpg</span><div class="track"><div class="fill" style="width:86%"></div></div><span>high</span></div><div class="score"><span>mountain-sunset.jpg</span><div class="track"><div class="fill low" style="width:29%"></div></div><span>low</span></div></div><p class="caption2">Bars are conceptual, not claimed scores from these specific photographs.</p></div></div>
+
+<div class="pipeline"><div class="eyebrow">The complete indexing pipeline</div><div class="pipe"><div class="box"><em>🖼</em><b>Image file</b><small>pixels</small></div><span class="arrow">→</span><div class="box"><em>AI</em><b>CLIP</b><small>image encoder</small></div><span class="arrow">→</span><div class="box"><em>[ ]</em><b>Embedding</b><small>vector</small></div><span class="arrow">→</span><div class="box hot"><em>DB</em><b>Qdrant</b><small>vector + payload</small></div></div></div>
+<div class="pipeline"><div class="eyebrow">The complete search pipeline</div><div class="pipe"><div class="box"><em>" "</em><b>Text query</b><small>natural language</small></div><span class="arrow">→</span><div class="box"><em>AI</em><b>CLIP</b><small>text encoder</small></div><span class="arrow">→</span><div class="box"><em>[ ]</em><b>Query vector</b><small>embedding</small></div><span class="arrow">→</span><div class="box hot"><em>DB</em><b>Qdrant</b><small>nearest neighbors</small></div><span class="arrow">→</span><div class="box"><em>✓</em><b>Results</b><small>payload paths</small></div></div></div>
+</div></section>
+
+<section><div class="wrap"><div class="eyebrow">Why use a vector database?</div><h2>Because semantic search needs more than SQL equality.</h2><div class="featuregrid">
+<div class="feature"><i>VEC</i><h3>Vector storage</h3><p>Store high-dimensional embeddings as first-class database data.</p></div>
+<div class="feature"><i>NN</i><h3>Similarity search</h3><p>Retrieve nearest vectors instead of only exact-value matches.</p></div>
+<div class="feature"><i>PAY</i><h3>Payload metadata</h3><p>Keep filenames, paths, types and other application data with each point.</p></div>
+<div class="feature"><i>FLT</i><h3>Filtering</h3><p>Combine vector similarity with metadata constraints as the project grows.</p></div>
+<div class="feature"><i>CRUD</i><h3>Database operations</h3><p>Add, update and delete points instead of rebuilding a standalone array by hand.</p></div>
+<div class="feature"><i>API</i><h3>Real database interface</h3><p>Run locally for the tutorial, then connect to a Qdrant service using the same model.</p></div>
+</div></div></section>
+
+<section><div class="wrap"><div class="eyebrow">Important retrieval concept</div><h2>“Closest” does not automatically mean “correct.”</h2><p class="desc">If you search for something that is not represented in your collection, the database can still return the nearest vectors. A nearest-neighbor query answers “what is closest among what I have?”, not “does an objectively correct match exist?”</p>
+<div class="compare"><div><h3>Top-K retrieval</h3><p>“Give me the 5 nearest points.” Even weak matches may appear because the database is required to rank something.</p><code>limit=5</code></div><div class="yes"><h3>Score threshold</h3><p>For some applications you can reject results below a calibrated similarity threshold so poor matches are not presented as valid.</p><code>score_threshold=...</code></div></div>
+</div></section>
+
+<section id="code"><div class="wrap"><div class="eyebrow">Python architecture</div><h2>The responsibilities stay clean.</h2>
+<div class="terminal"><div class="termhead"><span>mental_model.py</span><span>CLIP ≠ Qdrant</span></div><pre><span class="c"># CLIP's job: representation</span>
+image_vector = clip.encode(image)
+query_vector = clip.encode(<span class="g">"dog playing in snow"</span>)
+
+<span class="c"># Qdrant's job: database storage + similarity retrieval</span>
+client.upsert(collection_name=<span class="g">"images"</span>, points=[...])
+matches = client.query_points(
+    collection_name=<span class="g">"images"</span>,
+    query=query_vector.tolist(),
+    limit=5,
+).points</pre></div>
+<div class="callout"><strong>Do not say “Qdrant understands the image.”</strong> CLIP creates the semantic representation. Qdrant does not know what a dog is; it stores vectors and finds mathematically similar vectors.</div>
+</div></section>
+
+<section id="setup"><div class="wrap"><div class="eyebrow">Build it</div><h2>Local setup for the tutorial.</h2><p class="desc">Use the Qdrant Python client with local persistent storage for the simplest laptop demo. No separate database server is required for that version.</p>
+<div class="tabs"><button class="tab active" data-tab="install">Install</button><button class="tab" data-tab="index">Index</button><button class="tab" data-tab="search">Search</button><button class="tab" data-tab="server">Qdrant server</button></div>
+<div id="install" class="tabpane active"><div class="terminal"><div class="termhead"><span>terminal</span><span>dependencies</span></div><pre>pip install sentence-transformers qdrant-client pillow numpy tqdm</pre></div></div>
+<div id="index" class="tabpane"><div class="terminal"><div class="termhead"><span>terminal</span><span>index your folder</span></div><pre>python local_search.py index-images /path/to/photos</pre></div></div>
+<div id="search" class="tabpane"><div class="terminal"><div class="termhead"><span>terminal</span><span>semantic search</span></div><pre>python local_search.py search-images <span class="g">"dog playing in snow"</span> --limit 5</pre></div></div>
+<div id="server" class="tabpane"><div class="terminal"><div class="termhead"><span>terminal</span><span>optional server deployment</span></div><pre>docker pull qdrant/qdrant
+
+docker run -p 6333:6333 -p 6334:6334 \
+  -v "$(pwd)/qdrant_storage:/qdrant/storage:z" \
+  qdrant/qdrant</pre></div></div>
+</div></section>
+
+<section><div class="wrap"><div class="eyebrow">Project structure</div><h2>What lives where.</h2><div class="terminal"><div class="termhead"><span>local-vector-search/</span><span>tutorial project</span></div><pre>local-vector-search/
+├── local_search.py
+├── index.html
+├── demo-images/
+│   ├── dog-snow-01.jpg
+│   ├── red-sports-car.jpg
+│   └── ...
+└── qdrant_data/             <span class="c"># persistent vector database data</span>
+
+Your photo folder can live anywhere on the laptop.
+The Qdrant payload stores the path back to each original file.</pre></div></div></section>
+
+<footer><div class="wrap foot"><span>Local Vector DB · CLIP + Qdrant</span><span>Embeddings → vectors → database → nearest neighbors → results</span></div></footer>
+
+<script>
+const cards=[...document.querySelectorAll('.photo')], gallery=document.getElementById('gallery'), q=document.getElementById('q'), status=document.getElementById('status');
+const original=[...cards]; const stop=new Set(['a','an','the','in','on','at','of','with','and','to','for']);
+function run(){
+  const words=q.value.toLowerCase().trim().split(/\s+/).filter(x=>x&&!stop.has(x));
+  if(!words.length){showAll();return}
+  const scored=cards.map((el,i)=>{const tags=el.dataset.tags.split(/\s+/);let n=0;words.forEach(w=>{if(tags.some(t=>t.includes(w)||w.includes(t)))n++});return {el,i,score:n/words.length,n}});
+  scored.sort((a,b)=>b.score-a.score||a.i-b.i); gallery.innerHTML='';
+  let shown=0; scored.forEach(x=>{x.el.classList.remove('result');if(x.n){x.el.style.display='block';x.el.classList.add('result');gallery.appendChild(x.el);shown++}else{x.el.style.display='none';gallery.appendChild(x.el)}});
+  status.textContent=shown?`${shown} matching demo images`:'No tag matches in static demo';
+}
+function showAll(){gallery.innerHTML='';original.forEach(el=>{el.style.display='block';el.classList.remove('result');gallery.appendChild(el)});status.textContent='12 images in demo library'}
+document.getElementById('go').onclick=run;q.addEventListener('keydown',e=>{if(e.key==='Enter')run()});
+document.querySelectorAll('.chip').forEach(b=>{if(b.id!=='all')b.onclick=()=>{q.value=b.textContent;run()}});document.getElementById('all').onclick=showAll;
+document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));document.querySelectorAll('.tabpane').forEach(x=>x.classList.remove('active'));t.classList.add('active');document.getElementById(t.dataset.tab).classList.add('active')});
+run();
+</script>
+</body>
+</html>
